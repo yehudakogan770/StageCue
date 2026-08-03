@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StageCue - Keyboard Player</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="stylesheet" href="/css/player.css" />
+</head>
+<body>
+
+  <!-- Start screen: shown before a session exists -->
+  <div id="startScreen" class="start-screen">
+    <div class="card start-card">
+      <h1>Keyboard Player</h1>
+      <p>Start a session, then give the code to your singer.</p>
+      <button id="startBtn" class="btn btn-primary">Start Session</button>
+    </div>
+  </div>
+
+  <!-- Main control screen -->
+  <div id="mainScreen" class="app-shell hidden">
+    <header class="topbar">
+      <div class="brand">StageCue</div>
+      <div class="session-info">
+        <span class="status-pill"><span class="status-dot online"></span> Session active</span>
+        <span class="code-pill">Code: <strong id="codeDisplay">-----</strong></span>
+        <span id="singerStatus" class="status-pill"><span class="status-dot"></span> Singer not connected</span>
+      </div>
+      <button id="endSessionBtn" class="btn btn-danger btn-small">End Session</button>
+    </header>
+
+    <div class="layout">
+      <!-- MAIN COLUMN -->
+      <main class="main-col">
+
+        <section class="card">
+          <div class="section-head">
+            <h2>Now Showing to Singer</h2>
+            <div class="font-controls">
+              <span>Text size</span>
+              <button class="btn btn-small" id="fontDownBtn">A-</button>
+              <button class="btn btn-small" id="fontUpBtn">A+</button>
+            </div>
+          </div>
+
+          <div id="nowShowing" class="now-showing">
+            <p class="muted">Nothing showing yet.</p>
+          </div>
+
+          <div class="now-showing-actions">
+            <button id="backToLyricsBtn" class="btn hidden">Back to Lyrics</button>
+            <button id="clearScreenBtn" class="btn btn-danger">Clear Screen</button>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Send a Message</h2>
+          <div class="message-row">
+            <input id="messageInput" type="text" placeholder="Type a message for the singer..." maxlength="200" />
+            <button id="sendMessageBtn" class="btn btn-primary">Send</button>
+          </div>
+          <div id="presetGrid" class="preset-grid"></div>
+        </section>
+
+        <section class="card">
+          <h2>Live Queue</h2>
+          <div class="queue-toolbar">
+            <select id="playlistLoadSelect"><option value="">Load a playlist into queue...</option></select>
+            <button id="loadPlaylistBtn" class="btn btn-small">Load</button>
+            <button id="saveQueueBtn" class="btn btn-small">Save Queue as Playlist</button>
+            <button id="clearQueueBtn" class="btn btn-small btn-danger">Clear Queue</button>
+          </div>
+          <ol id="queueList" class="queue-list"></ol>
+        </section>
+
+        <section class="card">
+          <h2>Singer Says</h2>
+          <ul id="reactionsFeed" class="reactions-feed">
+            <li class="muted">No reactions yet.</li>
+          </ul>
+        </section>
+      </main>
+
+      <!-- SIDEBAR -->
+      <aside class="side-col">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="library">Library</button>
+          <button class="tab-btn" data-tab="playlists">Playlists</button>
+          <button class="tab-btn" data-tab="presets">Presets</button>
+        </div>
+
+        <div id="tab-library" class="tab-panel card active">
+          <h3>Add Song</h3>
+          <form id="songForm" class="stacked-form">
+            <input type="hidden" id="songId" />
+            <label>Title<input id="songTitle" required /></label>
+            <label>Artist<input id="songArtist" /></label>
+            <label>Lyrics<textarea id="songLyrics" rows="6" placeholder="One line per line of lyrics"></textarea></label>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary btn-small">Save Song</button>
+              <button type="button" id="songCancelBtn" class="btn btn-small hidden">Cancel Edit</button>
+            </div>
+          </form>
+          <hr />
+          <ul id="songLibraryList" class="entity-list"></ul>
+        </div>
+
+        <div id="tab-playlists" class="tab-panel card hidden">
+          <h3>Create Playlist</h3>
+          <form id="playlistForm" class="stacked-form">
+            <input type="hidden" id="playlistId" />
+            <label>Name<input id="playlistName" required /></label>
+            <label>Songs</label>
+            <div id="playlistSongChecks" class="check-list"></div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary btn-small">Save Playlist</button>
+              <button type="button" id="playlistCancelBtn" class="btn btn-small hidden">Cancel Edit</button>
+            </div>
+          </form>
+          <hr />
+          <ul id="playlistLibraryList" class="entity-list"></ul>
+        </div>
+
+        <div id="tab-presets" class="tab-panel card hidden">
+          <h3>Create Preset</h3>
+          <form id="presetForm" class="stacked-form">
+            <input type="hidden" id="presetId" />
+            <label>Button Label<input id="presetLabel" required maxlength="24" /></label>
+            <label>Message Sent<input id="presetMessage" required maxlength="200" /></label>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary btn-small">Save Preset</button>
+              <button type="button" id="presetCancelBtn" class="btn btn-small hidden">Cancel Edit</button>
+            </div>
+          </form>
+          <hr />
+          <ul id="presetLibraryList" class="entity-list"></ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/player.js"></script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StageCue - Singer</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="stylesheet" href="/css/singer.css" />
+</head>
+<body>
+
+  <!-- Join screen -->
+  <div id="joinScreen" class="join-screen">
+    <div class="card join-card">
+      <h1>Singer</h1>
+      <p>Enter the code your keyboard player gave you.</p>
+      <form id="joinForm" class="stacked-form">
+        <input id="codeInput" placeholder="CODE" maxlength="5" autocomplete="off" autocapitalize="characters" />
+        <button type="submit" class="btn btn-primary">Connect</button>
+      </form>
+      <p id="joinError" class="error hidden"></p>
+    </div>
+  </div>
+
+  <!-- Live display -->
+  <div id="liveScreen" class="live-screen hidden">
+    <div class="top-strip">
+      <span id="connStatus" class="status-pill"><span class="status-dot online"></span> Connected</span>
+      <button id="leaveBtn" class="btn btn-small">Leave</button>
+    </div>
+
+    <div id="display" class="display scale-normal">
+      <p class="waiting">Waiting for the keyboard player...</p>
+    </div>
+
+    <div class="reply-bar" id="replyBar"></div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/singer.js"></script>
+</body>
+</html>

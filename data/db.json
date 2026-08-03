@@ -1,0 +1,31 @@
+{
+  "songs": [
+    {
+      "id": "song-1",
+      "title": "Amazing Grace",
+      "artist": "Traditional",
+      "lyrics": "Amazing grace, how sweet the sound\nThat saved a wretch like me\nI once was lost, but now am found\nWas blind, but now I see\n\n'Twas grace that taught my heart to fear\nAnd grace my fears relieved\nHow precious did that grace appear\nThe hour I first believed"
+    },
+    {
+      "id": "song-2",
+      "title": "Here I Am to Worship",
+      "artist": "Tim Hughes",
+      "lyrics": "Light of the world, You stepped down into darkness\nOpened my eyes, let me see\nBeauty that made this heart adore You\nHope of a life spent with You\n\nHere I am to worship\nHere I am to bow down\nHere I am to say that You're my God"
+    }
+  ],
+  "playlists": [
+    {
+      "id": "playlist-1",
+      "name": "Sunday Set",
+      "songIds": ["song-1", "song-2"]
+    }
+  ],
+  "presets": [
+    { "id": "preset-1", "label": "One more verse", "message": "One more verse!" },
+    { "id": "preset-2", "label": "Last chorus", "message": "This is the last chorus" },
+    { "id": "preset-3", "label": "Slow down", "message": "Slow down" },
+    { "id": "preset-4", "label": "Speed up", "message": "Pick up the pace" },
+    { "id": "preset-5", "label": "Wrap it up", "message": "Wrap it up" },
+    { "id": "preset-6", "label": "Repeat chorus", "message": "Repeat the chorus" }
+  ]
+}
