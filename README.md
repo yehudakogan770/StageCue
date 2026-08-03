@@ -49,6 +49,24 @@ other devices can connect using your computer's local IP address instead of
 - **Saved data**: songs, playlists, and presets are stored in
   `data/db.json` on the server, so they persist between sessions.
 
+## Deploying it online (so it works from anywhere)
+
+This repo includes a `render.yaml`, so it can be deployed on
+[Render](https://render.com) as a free web service:
+
+1. Sign up / log in at render.com (a free account is enough).
+2. Click **New +** → **Blueprint**, and connect this GitHub repository.
+3. Render reads `render.yaml` automatically and sets everything up — click
+   **Apply** to deploy.
+4. Once it's live, Render gives you a public URL like
+   `https://stagecue.onrender.com` — share that with your singer instead of
+   a local address.
+
+Note: on Render's free plan, the server's disk resets on every redeploy or
+restart, so anything saved in `data/db.json` (songs/playlists/presets) can
+be lost when that happens. That's fine to start with; if you want that data
+to survive long-term, it can be moved to a small persistent database later.
+
 ## Notes
 
 - The live session (which singer is paired with which player, and what's
