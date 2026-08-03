@@ -19,6 +19,40 @@
         <button type="submit" class="btn btn-primary">Connect</button>
       </form>
       <p id="joinError" class="error hidden"></p>
+
+      <hr />
+      <p class="muted small-note">An account is optional &mdash; only needed if you want to save your own custom quick replies.</p>
+
+      <div id="singerLoggedOutBox">
+        <button id="singerToggleAuthBtn" class="btn btn-small">Log In / Register</button>
+        <div id="singerAuthForms" class="hidden">
+          <form id="singerLoginForm" class="stacked-form">
+            <input id="singerLoginUsername" placeholder="Username" required autocomplete="username" />
+            <input id="singerLoginPassword" type="password" placeholder="Password" required autocomplete="current-password" />
+            <button type="submit" class="btn btn-primary btn-small">Log In</button>
+          </form>
+          <p id="singerAuthError" class="error hidden"></p>
+          <button id="singerShowRegisterBtn" class="btn btn-small">Need an account? Register instead</button>
+          <a id="singerGoogleLoginBtn" class="btn btn-small hidden" href="/api/auth/google?role=singer">Continue with Google</a>
+
+          <form id="singerRegisterForm" class="stacked-form hidden">
+            <input id="singerRegisterUsername" placeholder="Username" required autocomplete="username" />
+            <input id="singerRegisterPassword" type="password" placeholder="Password (4+ characters)" required minlength="4" autocomplete="new-password" />
+            <button type="submit" class="btn btn-primary btn-small">Register</button>
+          </form>
+          <p id="singerRegisterError" class="error hidden"></p>
+        </div>
+      </div>
+
+      <div id="singerLoggedInBox" class="hidden">
+        <p>Signed in as <strong id="singerLoggedInAs"></strong> &mdash; <button id="singerLogoutBtn" class="btn btn-small">Log Out</button></p>
+        <p class="muted small-note">Your custom quick replies (shown along with the defaults):</p>
+        <ul id="singerCustomRepliesList" class="entity-list"></ul>
+        <div class="song-preset-add-row">
+          <input id="newReplyText" placeholder="New quick reply text" maxlength="40" />
+          <button type="button" id="addReplyBtn" class="btn btn-small">Add</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -26,7 +60,11 @@
   <div id="liveScreen" class="live-screen hidden">
     <div class="top-strip">
       <span id="connStatus" class="status-pill"><span class="status-dot online"></span> Connected</span>
-      <button id="leaveBtn" class="btn btn-small">Leave</button>
+      <div class="top-strip-actions">
+        <button id="singerFontDownBtn" class="btn btn-small">A-</button>
+        <button id="singerFontUpBtn" class="btn btn-small">A+</button>
+        <button id="leaveBtn" class="btn btn-small">Leave</button>
+      </div>
     </div>
 
     <div id="playerStatusBanner" class="player-status-banner hidden">Keyboard player disconnected &mdash; waiting to reconnect...</div>

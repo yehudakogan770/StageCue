@@ -30,6 +30,7 @@
   border-bottom: 1px solid var(--border);
   background: var(--panel);
 }
+.top-strip-actions { display: flex; gap: 8px; }
 
 .display {
   flex: 1;

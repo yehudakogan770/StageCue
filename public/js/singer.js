@@ -12,24 +12,190 @@
   const display = document.getElementById('display');
   const replyBar = document.getElementById('replyBar');
   const playerStatusBanner = document.getElementById('playerStatusBanner');
+  const singerFontUpBtn = document.getElementById('singerFontUpBtn');
+  const singerFontDownBtn = document.getElementById('singerFontDownBtn');
+
+  const singerToggleAuthBtn = document.getElementById('singerToggleAuthBtn');
+  const singerGoogleLoginBtn = document.getElementById('singerGoogleLoginBtn');
+  const singerAuthForms = document.getElementById('singerAuthForms');
+  const singerLoggedOutBox = document.getElementById('singerLoggedOutBox');
+  const singerLoggedInBox = document.getElementById('singerLoggedInBox');
+  const singerLoggedInAs = document.getElementById('singerLoggedInAs');
+  const singerLoginForm = document.getElementById('singerLoginForm');
+  const singerLoginUsername = document.getElementById('singerLoginUsername');
+  const singerLoginPassword = document.getElementById('singerLoginPassword');
+  const singerAuthError = document.getElementById('singerAuthError');
+  const singerShowRegisterBtn = document.getElementById('singerShowRegisterBtn');
+  const singerRegisterForm = document.getElementById('singerRegisterForm');
+  const singerRegisterUsername = document.getElementById('singerRegisterUsername');
+  const singerRegisterPassword = document.getElementById('singerRegisterPassword');
+  const singerRegisterError = document.getElementById('singerRegisterError');
+  const singerLogoutBtn = document.getElementById('singerLogoutBtn');
+  const singerCustomRepliesList = document.getElementById('singerCustomRepliesList');
+  const newReplyText = document.getElementById('newReplyText');
+  const addReplyBtn = document.getElementById('addReplyBtn');
 
   const SESSION_KEY = 'stagecue_singer_code';
 
-  REPLIES.forEach((text) => {
-    const btn = document.createElement('button');
-    btn.className = 'btn';
-    btn.textContent = text;
-    btn.addEventListener('click', () => {
-      socket.emit('singer:react', text);
-      flashReplySent(btn);
-    });
-    replyBar.appendChild(btn);
+  // Text size is local to this screen only - the keyboard player has no say in
+  // it, and it's never sent anywhere. Persisted so it survives a refresh.
+  const FONT_SCALES = ['small', 'normal', 'large', 'xlarge'];
+  let fontScale = localStorage.getItem('stagecue_singer_font_scale') || 'normal';
+
+  function applyFontScale() {
+    FONT_SCALES.forEach((s) => display.classList.remove('scale-' + s));
+    display.classList.add('scale-' + fontScale);
+  }
+
+  singerFontUpBtn.addEventListener('click', () => {
+    const i = Math.min(FONT_SCALES.length - 1, FONT_SCALES.indexOf(fontScale) + 1);
+    fontScale = FONT_SCALES[i];
+    localStorage.setItem('stagecue_singer_font_scale', fontScale);
+    applyFontScale();
   });
+  singerFontDownBtn.addEventListener('click', () => {
+    const i = Math.max(0, FONT_SCALES.indexOf(fontScale) - 1);
+    fontScale = FONT_SCALES[i];
+    localStorage.setItem('stagecue_singer_font_scale', fontScale);
+    applyFontScale();
+  });
+  applyFontScale();
 
   function flashReplySent(btn) {
     btn.classList.add('btn-primary');
     setTimeout(() => btn.classList.remove('btn-primary'), 400);
   }
+
+  // An account is entirely optional here - it only exists so a singer can save
+  // their own quick replies (shown alongside the fixed defaults) across sessions.
+  let singerUser = null;
+  let customReplies = [];
+
+  async function apiCall(url, opts) {
+    const res = await fetch(url, { credentials: 'same-origin', ...opts });
+    return { ok: res.ok, data: await res.json() };
+  }
+
+  function renderReplyBar() {
+    replyBar.innerHTML = '';
+    [...REPLIES, ...customReplies.map((r) => r.text)].forEach((text) => {
+      const btn = document.createElement('button');
+      btn.className = 'btn';
+      btn.textContent = text;
+      btn.addEventListener('click', () => {
+        socket.emit('singer:react', text);
+        flashReplySent(btn);
+      });
+      replyBar.appendChild(btn);
+    });
+  }
+  renderReplyBar();
+
+  function renderCustomRepliesList() {
+    singerCustomRepliesList.innerHTML = '';
+    if (customReplies.length === 0) {
+      singerCustomRepliesList.innerHTML = '<li class="muted">None yet.</li>';
+      return;
+    }
+    customReplies.forEach((r) => {
+      const li = document.createElement('li');
+      li.className = 'entity-item';
+      li.innerHTML = `<div class="info"><strong>${r.text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))}</strong></div>
+        <div class="actions"><button class="btn btn-small btn-danger" data-act="del">Del</button></div>`;
+      li.querySelector('[data-act="del"]').addEventListener('click', async () => {
+        await apiCall(`/api/singer/replies/${r.id}`, { method: 'DELETE' });
+        customReplies = customReplies.filter((x) => x.id !== r.id);
+        renderCustomRepliesList();
+        renderReplyBar();
+      });
+      singerCustomRepliesList.appendChild(li);
+    });
+  }
+
+  function showSingerLoggedIn(user) {
+    singerUser = user;
+    singerLoggedInAs.textContent = user.username;
+    singerLoggedOutBox.classList.add('hidden');
+    singerLoggedInBox.classList.remove('hidden');
+  }
+
+  async function loadCustomReplies() {
+    const { ok, data } = await apiCall('/api/singer/replies');
+    if (ok) {
+      customReplies = data;
+      renderCustomRepliesList();
+      renderReplyBar();
+    }
+  }
+
+  singerToggleAuthBtn.addEventListener('click', () => singerAuthForms.classList.toggle('hidden'));
+  singerShowRegisterBtn.addEventListener('click', () => {
+    singerLoginForm.classList.add('hidden');
+    singerRegisterForm.classList.remove('hidden');
+  });
+
+  singerLoginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    singerAuthError.classList.add('hidden');
+    const { ok, data } = await apiCall('/api/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: singerLoginUsername.value.trim(), password: singerLoginPassword.value }),
+    });
+    if (!ok) {
+      singerAuthError.textContent = data.error || 'Could not log in.';
+      singerAuthError.classList.remove('hidden');
+      return;
+    }
+    showSingerLoggedIn(data.user);
+    await loadCustomReplies();
+  });
+
+  singerRegisterForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    singerRegisterError.classList.add('hidden');
+    const { ok, data } = await apiCall('/api/auth/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: singerRegisterUsername.value.trim(), password: singerRegisterPassword.value, role: 'singer' }),
+    });
+    if (!ok) {
+      singerRegisterError.textContent = data.error || 'Could not register.';
+      singerRegisterError.classList.remove('hidden');
+      return;
+    }
+    showSingerLoggedIn(data.user);
+    await loadCustomReplies();
+  });
+
+  singerLogoutBtn.addEventListener('click', async () => {
+    await apiCall('/api/auth/logout', { method: 'POST' });
+    location.reload();
+  });
+
+  addReplyBtn.addEventListener('click', async () => {
+    const text = newReplyText.value.trim();
+    if (!text) return;
+    const { ok, data } = await apiCall('/api/singer/replies', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }),
+    });
+    if (!ok) return;
+    customReplies.push(data);
+    newReplyText.value = '';
+    renderCustomRepliesList();
+    renderReplyBar();
+  });
+
+  fetch('/api/config', { credentials: 'same-origin' })
+    .then((r) => r.json())
+    .then((cfg) => { if (cfg.googleEnabled) singerGoogleLoginBtn.classList.remove('hidden'); })
+    .catch(() => {});
+
+  (async () => {
+    const { data } = await apiCall('/api/auth/me');
+    if (data.user && data.user.role === 'singer') {
+      showSingerLoggedIn(data.user);
+      await loadCustomReplies();
+    }
+  })();
 
   function showLive(state) {
     joinScreen.classList.add('hidden');
@@ -100,7 +266,7 @@
   function applyState(state) {
     if (!state) return;
 
-    display.className = 'display scale-' + (state.fontScale || 'normal');
+    applyFontScale();
     display.innerHTML = '';
     let shownSomething = false;
 

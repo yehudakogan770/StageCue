@@ -29,7 +29,15 @@
   top: 0;
   z-index: 10;
 }
-.brand { font-weight: 700; font-size: 1.1rem; }
+.brand {
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+  background: linear-gradient(135deg, #fff 20%, var(--accent) 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
 .session-info { display: flex; gap: 10px; flex-wrap: wrap; flex: 1; }
 .topbar-actions { display: flex; gap: 8px; }
 .code-pill {
@@ -74,6 +82,9 @@
 .line-controls.big button { flex: 1; }
 .up-next { margin-top: 10px; text-align: center; font-size: 15px; }
 #nextSongBtn { font-size: 1.2rem; min-height: 64px; }
+.playlist-heading { margin: 18px 0 0; }
+.queue-item.tappable { cursor: pointer; padding: 14px 12px; }
+.queue-item.tappable:active { background: #2a303b; }
 
 .layout {
   display: grid;
@@ -92,7 +103,8 @@
 .side-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 
 .section-head { display: flex; justify-content: space-between; align-items: center; }
-.font-controls { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.font-controls { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); flex-wrap: wrap; justify-content: flex-end; }
+.lyrics-hidden-note { text-align: center; margin: 12px 0; }
 
 .now-showing {
   min-height: 120px;
@@ -101,17 +113,25 @@
   border-radius: var(--radius);
   padding: 16px;
   margin: 12px 0;
+  font-size: 1rem; /* base unit that the text-scale-* classes below multiply */
 }
 .now-showing .muted { color: var(--muted); }
-.now-showing .msg-preview { font-size: 1.4rem; font-weight: 600; }
-.now-showing .song-title { font-weight: 700; margin-bottom: 8px; }
-.now-showing .song-artist { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+.now-showing .msg-preview { font-size: 1.4em; font-weight: 600; }
+.now-showing .song-title { font-size: 1.15em; font-weight: 700; margin-bottom: 8px; }
+.now-showing .song-artist { color: var(--muted); font-size: 0.85em; margin-bottom: 10px; }
 .now-showing .lyric-line {
+  font-size: 1.05em;
   padding: 4px 8px;
   border-radius: 6px;
   cursor: pointer;
   line-height: 1.6;
 }
+
+/* Player's own text size preference - local only, never affects the singer */
+.now-showing.text-scale-small { font-size: 0.8rem; }
+.now-showing.text-scale-normal { font-size: 1rem; }
+.now-showing.text-scale-large { font-size: 1.25rem; }
+.now-showing.text-scale-xlarge { font-size: 1.55rem; }
 .now-showing .lyric-line:hover { background: var(--panel-2); }
 .now-showing .lyric-line.active { background: var(--accent); color: #fff; }
 .line-controls { display: flex; gap: 8px; margin-top: 10px; }
@@ -173,27 +193,12 @@
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
 
-.stacked-form { display: flex; flex-direction: column; gap: 10px; }
-.stacked-form label { margin-bottom: 0; }
 .form-actions { display: flex; gap: 8px; }
 
 .check-list { max-height: 160px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; }
+
+.preset-grid button.preset-song-specific { border-color: var(--accent-2); }
 .check-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 14px; }
 .check-item input { width: auto; }
-
-.entity-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; }
-.entity-item {
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 8px 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.entity-item .info { flex: 1; min-width: 0; }
-.entity-item .info strong { display: block; font-size: 14px; }
-.entity-item .info span { color: var(--muted); font-size: 12px; }
-.entity-item .actions { display: flex; gap: 4px; }
 
 hr { border: none; border-top: 1px solid var(--border); margin: 14px 0 0; }
