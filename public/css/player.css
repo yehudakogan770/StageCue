@@ -8,8 +8,12 @@
 .start-card {
   text-align: center;
   max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
-.start-card p { color: var(--muted); }
+.start-card p { color: var(--muted); margin: 0; }
+.start-card label { text-align: left; margin-bottom: 0; }
 
 .app-shell { min-height: 100%; display: flex; flex-direction: column; }
 
@@ -21,9 +25,13 @@
   border-bottom: 1px solid var(--border);
   background: var(--panel);
   flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 .brand { font-weight: 700; font-size: 1.1rem; }
 .session-info { display: flex; gap: 10px; flex-wrap: wrap; flex: 1; }
+.topbar-actions { display: flex; gap: 8px; }
 .code-pill {
   font-size: 13px;
   padding: 4px 10px;
@@ -32,6 +40,40 @@
   border: 1px solid var(--border);
   letter-spacing: 1px;
 }
+
+.reaction-banner {
+  background: var(--accent-2);
+  color: #04150d;
+  font-weight: 700;
+  text-align: center;
+  padding: 12px;
+  font-size: 1.1rem;
+}
+
+/* ---------- Live screen (mobile-first, big-tap performance mode) ---------- */
+#liveScreen {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.live-card h2 { margin-top: 0; }
+.btn-big {
+  min-height: 58px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.btn-full { width: 100%; }
+.line-controls.big {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+.line-controls.big button { flex: 1; }
+.up-next { margin-top: 10px; text-align: center; font-size: 15px; }
+#nextSongBtn { font-size: 1.2rem; min-height: 64px; }
 
 .layout {
   display: grid;
@@ -81,10 +123,10 @@
 
 .preset-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
 }
-.preset-grid button { width: 100%; }
+.preset-grid button { width: 100%; min-height: 52px; font-size: 1rem; }
 
 .queue-toolbar { display: flex; gap: 8px; margin: 10px 0 14px; flex-wrap: wrap; }
 .queue-toolbar select { flex: 1; min-width: 160px; }
