@@ -1,0 +1,21 @@
+name: Keep StageCue awake
+
+# Render's free tier spins the app down after ~15 minutes of no traffic, so
+# the next visit has to wait 30-60+ seconds while it wakes back up. Pinging
+# it every 10 minutes keeps it from ever going idle that long.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping StageCue
+        run: |
+          echo "Pinging $STAGECUE_URL"
+          curl -sS -o /dev/null -w "Response: %{http_code}\n" --max-time 60 "$STAGECUE_URL"
+        env:
+          STAGECUE_URL: https://stagecue-9yp2.onrender.com/
