@@ -23,20 +23,12 @@
   gap: 16px;
   padding: 12px 20px;
   border-bottom: 1px solid var(--border);
-  background: var(--panel);
+  background: rgba(20, 20, 29, 0.85);
+  backdrop-filter: blur(10px);
   flex-wrap: wrap;
   position: sticky;
   top: 0;
   z-index: 10;
-}
-.brand {
-  font-weight: 800;
-  font-size: 1.15rem;
-  letter-spacing: -0.01em;
-  background: linear-gradient(135deg, #fff 20%, var(--accent) 90%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
 }
 .session-info { display: flex; gap: 10px; flex-wrap: wrap; flex: 1; }
 .topbar-actions { display: flex; gap: 8px; }

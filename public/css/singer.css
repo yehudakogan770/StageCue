@@ -28,7 +28,8 @@
   align-items: center;
   padding: 10px 16px;
   border-bottom: 1px solid var(--border);
-  background: var(--panel);
+  background: rgba(20, 20, 29, 0.85);
+  backdrop-filter: blur(10px);
 }
 .top-strip-actions { display: flex; gap: 8px; }
 
