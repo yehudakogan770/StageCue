@@ -9,7 +9,8 @@
   let sessionCode = null;
   let singerCount = 0;
 
-  let liveState = { mode: 'idle', message: '', song: null, highlightLine: -1, fontScale: 'normal' };
+  // song and message are independent - either, both, or neither can be showing at once.
+  let liveState = { message: '', song: null, highlightLine: -1, fontScale: 'normal' };
   const FONT_SCALES = ['small', 'normal', 'large', 'xlarge'];
 
   // ---------- API helpers ----------
@@ -30,19 +31,30 @@
   const startScreen = document.getElementById('startScreen');
   const mainScreen = document.getElementById('mainScreen');
   const startBtn = document.getElementById('startBtn');
+  const customCodeInput = document.getElementById('customCodeInput');
+  const startError = document.getElementById('startError');
   const codeDisplay = document.getElementById('codeDisplay');
   const singerStatus = document.getElementById('singerStatus');
+  const playerConnStatus = document.getElementById('playerConnStatus');
   const endSessionBtn = document.getElementById('endSessionBtn');
 
   const nowShowing = document.getElementById('nowShowing');
-  const backToLyricsBtn = document.getElementById('backToLyricsBtn');
   const clearScreenBtn = document.getElementById('clearScreenBtn');
   const fontUpBtn = document.getElementById('fontUpBtn');
   const fontDownBtn = document.getElementById('fontDownBtn');
+  const prevLineBtn = document.getElementById('prevLineBtn');
+  const nextLineBtn = document.getElementById('nextLineBtn');
 
+  const currentMessage = document.getElementById('currentMessage');
+  const clearMessageBtn = document.getElementById('clearMessageBtn');
   const messageInput = document.getElementById('messageInput');
   const sendMessageBtn = document.getElementById('sendMessageBtn');
+  const toggleMessageBtn = document.getElementById('toggleMessageBtn');
+  const messageBox = document.getElementById('messageBox');
   const presetGrid = document.getElementById('presetGrid');
+
+  const nextSongBtn = document.getElementById('nextSongBtn');
+  const upNextLabel = document.getElementById('upNextLabel');
 
   const playlistLoadSelect = document.getElementById('playlistLoadSelect');
   const loadPlaylistBtn = document.getElementById('loadPlaylistBtn');
@@ -51,22 +63,82 @@
   const queueList = document.getElementById('queueList');
 
   const reactionsFeed = document.getElementById('reactionsFeed');
+  const reactionBanner = document.getElementById('reactionBanner');
+
+  const liveScreen = document.getElementById('liveScreen');
+  const manageScreen = document.getElementById('manageScreen');
+  const manageToggleBtn = document.getElementById('manageToggleBtn');
 
   // ---------- Session lifecycle ----------
+  const SESSION_KEY = 'stagecue_session_code';
+
+  function enterSession(code, state) {
+    sessionCode = code;
+    codeDisplay.textContent = code;
+    startScreen.classList.add('hidden');
+    mainScreen.classList.remove('hidden');
+    if (state) liveState = state;
+    renderNowShowing();
+    renderCurrentMessage();
+  }
+
   startBtn.addEventListener('click', () => {
-    socket.emit('player:create', (ack) => {
-      if (!ack || !ack.ok) return;
-      sessionCode = ack.code;
-      codeDisplay.textContent = sessionCode;
-      startScreen.classList.add('hidden');
-      mainScreen.classList.remove('hidden');
+    startError.classList.add('hidden');
+    socket.emit('player:create', customCodeInput.value.trim(), (ack) => {
+      if (!ack || !ack.ok) {
+        startError.textContent = (ack && ack.error) || 'Could not start a session.';
+        startError.classList.remove('hidden');
+        return;
+      }
+      localStorage.setItem(SESSION_KEY, ack.code);
+      enterSession(ack.code, null);
     });
   });
 
   endSessionBtn.addEventListener('click', () => {
     if (!confirm('End this session? The singer will be disconnected.')) return;
+    localStorage.removeItem(SESSION_KEY);
     socket.disconnect();
     location.reload();
+  });
+
+  // Runs on first connect AND every automatic reconnect after a dropped
+  // connection - reclaims the in-progress session instead of losing it.
+  socket.on('connect', () => {
+    setConnBadge(true);
+    const saved = localStorage.getItem(SESSION_KEY);
+    if (!saved) return;
+    socket.emit('player:resume', saved, (ack) => {
+      if (ack && ack.ok) {
+        enterSession(ack.code, ack.state);
+        return;
+      }
+      localStorage.removeItem(SESSION_KEY);
+      if (sessionCode) {
+        alert('This session could not be recovered after a long disconnect. Please start a new one.');
+        location.reload();
+      }
+    });
+  });
+
+  socket.on('disconnect', () => setConnBadge(false));
+
+  function setConnBadge(online) {
+    if (!sessionCode) return; // don't show anything before a session has started
+    playerConnStatus.classList.remove('hidden');
+    const dot = playerConnStatus.querySelector('.status-dot');
+    dot.classList.toggle('online', online);
+    playerConnStatus.lastChild.textContent = online ? ' Connected' : ' Reconnecting...';
+  }
+
+  // liveScreen is the performance view (reached via "Launch Event"); manageScreen
+  // is the setup view (songs/playlists/presets/queue), shown by default so the
+  // singer can already be connected and ready before the event actually starts.
+  manageToggleBtn.addEventListener('click', () => {
+    const goingToManage = liveScreen.classList.contains('hidden') === false;
+    liveScreen.classList.toggle('hidden', goingToManage);
+    manageScreen.classList.toggle('hidden', !goingToManage);
+    manageToggleBtn.textContent = goingToManage ? 'Launch Event' : 'Edit Setup';
   });
 
   socket.on('singer:joined', ({ count }) => {
@@ -81,6 +153,7 @@
     }
   });
 
+  let bannerTimeout = null;
   socket.on('singer:reaction', ({ text, at }) => {
     if (reactionsFeed.dataset.empty === 'true') {
       reactionsFeed.innerHTML = '';
@@ -91,83 +164,86 @@
     li.innerHTML = `<span>${escapeHtml(text)}</span><span class="time">${time}</span>`;
     reactionsFeed.prepend(li);
     while (reactionsFeed.children.length > 25) reactionsFeed.removeChild(reactionsFeed.lastChild);
+
+    reactionBanner.textContent = `Singer: ${text}`;
+    reactionBanner.classList.remove('hidden');
+    clearTimeout(bannerTimeout);
+    bannerTimeout = setTimeout(() => reactionBanner.classList.add('hidden'), 4000);
   });
   reactionsFeed.dataset.empty = 'true';
 
   // ---------- Live state sync ----------
+  // song and message are independent: pushing one never touches the other.
   function pushUpdate(partial) {
     liveState = { ...liveState, ...partial };
     socket.emit('player:update', partial);
     renderNowShowing();
+    renderCurrentMessage();
   }
 
   function renderNowShowing() {
     nowShowing.innerHTML = '';
-    backToLyricsBtn.classList.add('hidden');
+    prevLineBtn.disabled = true;
+    nextLineBtn.disabled = true;
 
-    if (liveState.mode === 'idle' || (!liveState.message && !liveState.song)) {
-      nowShowing.innerHTML = '<p class="muted">Nothing showing yet.</p>';
+    if (!liveState.song) {
+      nowShowing.innerHTML = '<p class="muted">No song selected.</p>';
       return;
     }
 
-    if (liveState.mode === 'message') {
+    const title = document.createElement('div');
+    title.className = 'song-title';
+    title.textContent = liveState.song.title;
+    nowShowing.appendChild(title);
+
+    if (liveState.song.artist) {
+      const artist = document.createElement('div');
+      artist.className = 'song-artist';
+      artist.textContent = liveState.song.artist;
+      nowShowing.appendChild(artist);
+    }
+
+    liveState.song.lines.forEach((line, idx) => {
+      const div = document.createElement('div');
+      div.className = 'lyric-line' + (idx === liveState.highlightLine ? ' active' : '');
+      div.textContent = line || ' ';
+      div.addEventListener('click', () => pushUpdate({ highlightLine: idx }));
+      nowShowing.appendChild(div);
+    });
+
+    prevLineBtn.disabled = false;
+    nextLineBtn.disabled = false;
+  }
+
+  function renderCurrentMessage() {
+    if (liveState.message) {
+      currentMessage.innerHTML = '';
       const p = document.createElement('p');
       p.className = 'msg-preview';
       p.textContent = liveState.message;
-      nowShowing.appendChild(p);
-      if (liveState.song) backToLyricsBtn.classList.remove('hidden');
-      return;
-    }
-
-    if (liveState.mode === 'lyrics' && liveState.song) {
-      const title = document.createElement('div');
-      title.className = 'song-title';
-      title.textContent = liveState.song.title;
-      nowShowing.appendChild(title);
-
-      if (liveState.song.artist) {
-        const artist = document.createElement('div');
-        artist.className = 'song-artist';
-        artist.textContent = liveState.song.artist;
-        nowShowing.appendChild(artist);
-      }
-
-      liveState.song.lines.forEach((line, idx) => {
-        const div = document.createElement('div');
-        div.className = 'lyric-line' + (idx === liveState.highlightLine ? ' active' : '');
-        div.textContent = line || ' ';
-        div.addEventListener('click', () => pushUpdate({ highlightLine: idx }));
-        nowShowing.appendChild(div);
-      });
-
-      const controls = document.createElement('div');
-      controls.className = 'line-controls';
-      const prev = document.createElement('button');
-      prev.className = 'btn btn-small';
-      prev.textContent = 'Prev Line';
-      prev.addEventListener('click', () => {
-        const next = Math.max(-1, liveState.highlightLine - 1);
-        pushUpdate({ highlightLine: next });
-      });
-      const next = document.createElement('button');
-      next.className = 'btn btn-small';
-      next.textContent = 'Next Line';
-      next.addEventListener('click', () => {
-        const n = Math.min(liveState.song.lines.length - 1, liveState.highlightLine + 1);
-        pushUpdate({ highlightLine: n });
-      });
-      controls.appendChild(prev);
-      controls.appendChild(next);
-      nowShowing.appendChild(controls);
+      currentMessage.appendChild(p);
+    } else {
+      currentMessage.innerHTML = '<p class="muted">No message showing.</p>';
     }
   }
 
-  backToLyricsBtn.addEventListener('click', () => pushUpdate({ mode: 'lyrics' }));
+  prevLineBtn.addEventListener('click', () => {
+    if (!liveState.song) return;
+    const prev = Math.max(-1, liveState.highlightLine - 1);
+    pushUpdate({ highlightLine: prev });
+  });
+  nextLineBtn.addEventListener('click', () => {
+    if (!liveState.song) return;
+    const next = Math.min(liveState.song.lines.length - 1, liveState.highlightLine + 1);
+    pushUpdate({ highlightLine: next });
+  });
+
+  clearMessageBtn.addEventListener('click', () => pushUpdate({ message: '' }));
   clearScreenBtn.addEventListener('click', () => {
     currentIndex = -1;
     persistQueue();
     renderQueue();
-    pushUpdate({ mode: 'idle', message: '', song: null, highlightLine: -1 });
+    pushUpdate({ message: '', song: null, highlightLine: -1 });
   });
 
   fontUpBtn.addEventListener('click', () => {
@@ -183,11 +259,17 @@
   function sendMessage() {
     const text = messageInput.value.trim();
     if (!text) return;
-    pushUpdate({ mode: 'message', message: text });
+    pushUpdate({ message: text });
     messageInput.value = '';
+    messageBox.classList.add('hidden');
   }
   sendMessageBtn.addEventListener('click', sendMessage);
   messageInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
+
+  toggleMessageBtn.addEventListener('click', () => {
+    messageBox.classList.toggle('hidden');
+    if (!messageBox.classList.contains('hidden')) messageInput.focus();
+  });
 
   function renderPresetGrid() {
     presetGrid.innerHTML = '';
@@ -195,7 +277,7 @@
       const btn = document.createElement('button');
       btn.className = 'btn';
       btn.textContent = p.label;
-      btn.addEventListener('click', () => pushUpdate({ mode: 'message', message: p.message }));
+      btn.addEventListener('click', () => pushUpdate({ message: p.message }));
       presetGrid.appendChild(btn);
     });
   }
@@ -221,28 +303,50 @@
     queueList.innerHTML = '';
     if (queue.length === 0) {
       queueList.innerHTML = '<li class="muted">Queue is empty. Add songs from the Library tab.</li>';
-      return;
+    } else {
+      queue.forEach((songId, idx) => {
+        const song = findSong(songId);
+        if (!song) return;
+        const li = document.createElement('li');
+        li.className = 'queue-item' + (idx === currentIndex ? ' current' : '');
+        li.innerHTML = `
+          <div class="info"><strong>${idx + 1}. ${escapeHtml(song.title)}</strong><span>${escapeHtml(song.artist || '')}</span></div>
+          <div class="actions">
+            <button class="btn btn-small" data-act="up">&uarr;</button>
+            <button class="btn btn-small" data-act="down">&darr;</button>
+            <button class="btn btn-small btn-primary" data-act="send">Send</button>
+            <button class="btn btn-small btn-danger" data-act="remove">&times;</button>
+          </div>`;
+        li.querySelector('[data-act="up"]').addEventListener('click', () => moveQueueItem(idx, -1));
+        li.querySelector('[data-act="down"]').addEventListener('click', () => moveQueueItem(idx, 1));
+        li.querySelector('[data-act="send"]').addEventListener('click', () => sendSongToSinger(idx));
+        li.querySelector('[data-act="remove"]').addEventListener('click', () => removeFromQueue(idx));
+        queueList.appendChild(li);
+      });
     }
-    queue.forEach((songId, idx) => {
-      const song = findSong(songId);
-      if (!song) return;
-      const li = document.createElement('li');
-      li.className = 'queue-item' + (idx === currentIndex ? ' current' : '');
-      li.innerHTML = `
-        <div class="info"><strong>${idx + 1}. ${escapeHtml(song.title)}</strong><span>${escapeHtml(song.artist || '')}</span></div>
-        <div class="actions">
-          <button class="btn btn-small" data-act="up">&uarr;</button>
-          <button class="btn btn-small" data-act="down">&darr;</button>
-          <button class="btn btn-small btn-primary" data-act="send">Send</button>
-          <button class="btn btn-small btn-danger" data-act="remove">&times;</button>
-        </div>`;
-      li.querySelector('[data-act="up"]').addEventListener('click', () => moveQueueItem(idx, -1));
-      li.querySelector('[data-act="down"]').addEventListener('click', () => moveQueueItem(idx, 1));
-      li.querySelector('[data-act="send"]').addEventListener('click', () => sendSongToSinger(idx));
-      li.querySelector('[data-act="remove"]').addEventListener('click', () => removeFromQueue(idx));
-      queueList.appendChild(li);
-    });
+    renderUpNext();
   }
+
+  function renderUpNext() {
+    const nextIdx = currentIndex + 1;
+    const nextSong = queue[nextIdx] ? findSong(queue[nextIdx]) : null;
+    if (queue.length === 0) {
+      upNextLabel.textContent = 'Queue is empty — add songs in Setup.';
+      nextSongBtn.disabled = true;
+    } else if (nextSong) {
+      upNextLabel.textContent = `Up next: ${nextSong.title}`;
+      nextSongBtn.disabled = false;
+    } else {
+      upNextLabel.textContent = 'End of queue.';
+      nextSongBtn.disabled = true;
+    }
+  }
+
+  nextSongBtn.addEventListener('click', () => {
+    const nextIdx = currentIndex + 1;
+    if (!queue[nextIdx]) return;
+    sendSongToSinger(nextIdx);
+  });
 
   function moveQueueItem(idx, dir) {
     const target = idx + dir;
@@ -268,7 +372,7 @@
     currentIndex = idx;
     persistQueue();
     renderQueue();
-    pushUpdate({ mode: 'lyrics', song: { title: song.title, artist: song.artist, lines: (song.lyrics || '').split('\n') }, highlightLine: -1 });
+    pushUpdate({ song: { title: song.title, artist: song.artist, lines: (song.lyrics || '').split('\n') }, highlightLine: -1 });
   }
 
   function addToQueue(songId) {
@@ -569,6 +673,7 @@
     renderPresetGrid();
     renderQueue();
     renderNowShowing();
+    renderCurrentMessage();
   }
 
   init();

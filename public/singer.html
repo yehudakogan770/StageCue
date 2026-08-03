@@ -15,7 +15,7 @@
       <h1>Singer</h1>
       <p>Enter the code your keyboard player gave you.</p>
       <form id="joinForm" class="stacked-form">
-        <input id="codeInput" placeholder="CODE" maxlength="5" autocomplete="off" autocapitalize="characters" />
+        <input id="codeInput" placeholder="CODE" maxlength="12" autocomplete="off" autocapitalize="characters" />
         <button type="submit" class="btn btn-primary">Connect</button>
       </form>
       <p id="joinError" class="error hidden"></p>
@@ -28,6 +28,8 @@
       <span id="connStatus" class="status-pill"><span class="status-dot online"></span> Connected</span>
       <button id="leaveBtn" class="btn btn-small">Leave</button>
     </div>
+
+    <div id="playerStatusBanner" class="player-status-banner hidden">Keyboard player disconnected &mdash; waiting to reconnect...</div>
 
     <div id="display" class="display scale-normal">
       <p class="waiting">Waiting for the keyboard player...</p>

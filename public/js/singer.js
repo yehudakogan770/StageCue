@@ -11,6 +11,9 @@
   const leaveBtn = document.getElementById('leaveBtn');
   const display = document.getElementById('display');
   const replyBar = document.getElementById('replyBar');
+  const playerStatusBanner = document.getElementById('playerStatusBanner');
+
+  const SESSION_KEY = 'stagecue_singer_code';
 
   REPLIES.forEach((text) => {
     const btn = document.createElement('button');
@@ -28,34 +31,65 @@
     setTimeout(() => btn.classList.remove('btn-primary'), 400);
   }
 
+  function showLive(state) {
+    joinScreen.classList.add('hidden');
+    liveScreen.classList.remove('hidden');
+    applyState(state);
+  }
+
+  function joinWithCode(code, onFail) {
+    socket.emit('singer:join', code, (ack) => {
+      if (!ack || !ack.ok) {
+        onFail(ack && ack.error);
+        return;
+      }
+      localStorage.setItem(SESSION_KEY, code);
+      showLive(ack.state);
+    });
+  }
+
   joinForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const code = codeInput.value.trim().toUpperCase();
     if (!code) return;
     joinError.classList.add('hidden');
-    socket.emit('singer:join', code, (ack) => {
-      if (!ack || !ack.ok) {
-        joinError.textContent = (ack && ack.error) || 'Could not connect.';
-        joinError.classList.remove('hidden');
-        return;
-      }
-      joinScreen.classList.add('hidden');
-      liveScreen.classList.remove('hidden');
-      applyState(ack.state);
+    joinWithCode(code, (error) => {
+      joinError.textContent = error || 'Could not connect.';
+      joinError.classList.remove('hidden');
     });
   });
 
   leaveBtn.addEventListener('click', () => {
     if (!confirm('Leave the session?')) return;
+    localStorage.removeItem(SESSION_KEY);
     socket.disconnect();
     location.reload();
   });
 
-  socket.on('state:update', applyState);
+  socket.on('state:update', (state) => {
+    playerStatusBanner.classList.add('hidden');
+    applyState(state);
+  });
 
   socket.on('session:ended', () => {
+    localStorage.removeItem(SESSION_KEY);
     alert('The keyboard player ended the session.');
     location.reload();
+  });
+
+  socket.on('player:disconnected', () => playerStatusBanner.classList.remove('hidden'));
+  socket.on('player:reconnected', () => playerStatusBanner.classList.add('hidden'));
+
+  // Runs on first connect AND every automatic reconnect after a dropped
+  // connection - rejoins the session we were already in instead of getting stuck.
+  socket.on('connect', () => {
+    const dot = document.querySelector('#connStatus .status-dot');
+    if (dot) dot.classList.add('online');
+
+    const saved = localStorage.getItem(SESSION_KEY);
+    if (saved && liveScreen.classList.contains('hidden')) {
+      joinWithCode(saved, () => localStorage.removeItem(SESSION_KEY));
+    }
   });
 
   socket.on('disconnect', () => {
@@ -68,16 +102,20 @@
 
     display.className = 'display scale-' + (state.fontScale || 'normal');
     display.innerHTML = '';
+    let shownSomething = false;
 
-    if (state.mode === 'message' && state.message) {
+    if (state.message) {
+      const banner = document.createElement('div');
+      banner.className = 'message-banner';
       const p = document.createElement('p');
       p.className = 'message-text';
       p.textContent = state.message;
-      display.appendChild(p);
-      return;
+      banner.appendChild(p);
+      display.appendChild(banner);
+      shownSomething = true;
     }
 
-    if (state.mode === 'lyrics' && state.song) {
+    if (state.song) {
       const wrap = document.createElement('div');
       wrap.className = 'lyrics-block';
 
@@ -101,15 +139,17 @@
       });
 
       display.appendChild(wrap);
+      shownSomething = true;
 
       const active = wrap.querySelector('.lyric-line.active');
       if (active) active.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return;
     }
 
-    const p = document.createElement('p');
-    p.className = 'waiting';
-    p.textContent = 'Waiting for the keyboard player...';
-    display.appendChild(p);
+    if (!shownSomething) {
+      const p = document.createElement('p');
+      p.className = 'waiting';
+      p.textContent = 'Waiting for the keyboard player...';
+      display.appendChild(p);
+    }
   }
 })();

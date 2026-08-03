@@ -57,6 +57,9 @@ a { color: var(--accent); }
 
 .btn-small { padding: 6px 10px; font-size: 13px; }
 
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn:disabled:hover { background: var(--panel-2); border-color: var(--border); }
+
 input, textarea, select {
   background: var(--panel-2);
   border: 1px solid var(--border);
@@ -87,6 +90,7 @@ label {
 }
 
 .hidden { display: none !important; }
+.error { color: var(--danger); font-size: 14px; }
 
 /* ---------- Landing page ---------- */
 .landing {
