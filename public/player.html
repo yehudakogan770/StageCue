@@ -9,15 +9,59 @@
 </head>
 <body>
 
-  <!-- Start screen: shown before a session exists -->
-  <div id="startScreen" class="start-screen">
+  <!-- Auth screen: shown first - a keyboard player account keeps your songs/playlists/presets private to you -->
+  <div id="authScreen" class="start-screen">
     <div class="card start-card">
       <h1>Keyboard Player</h1>
+      <p>Log in to access your songs, playlists, and presets.</p>
+      <form id="loginForm" class="stacked-form">
+        <label>Username<input id="loginUsername" required /></label>
+        <label>Password<input id="loginPassword" type="password" required /></label>
+        <button type="submit" class="btn btn-primary btn-full">Log In</button>
+      </form>
+      <p id="authError" class="error hidden"></p>
+      <button id="showRegisterBtn" class="btn btn-small">Need an account? Register</button>
+      <a id="googleLoginBtn" class="btn btn-full hidden" href="/api/auth/google?role=player">Continue with Google</a>
+    </div>
+
+    <div class="card start-card hidden" id="registerCard">
+      <h1>Create Account</h1>
+      <form id="registerForm" class="stacked-form">
+        <label>Username<input id="registerUsername" required /></label>
+        <label>Password (4+ characters)<input id="registerPassword" type="password" required minlength="4" /></label>
+        <button type="submit" class="btn btn-primary btn-full">Register</button>
+      </form>
+      <p id="registerError" class="error hidden"></p>
+      <button id="showLoginBtn" class="btn btn-small">Already have an account? Log in</button>
+    </div>
+  </div>
+
+  <!-- Events screen: shown after login - pick or create the event to run.
+       Each event has its own completely separate songs/playlists/presets. -->
+  <div id="eventsScreen" class="start-screen hidden">
+    <div class="card start-card">
+      <h1>Your Events</h1>
+      <p>Signed in as <strong id="loggedInAs"></strong>. Each event keeps its own songs, playlists, and presets.</p>
+      <form id="createEventForm" class="stacked-form">
+        <input id="newEventName" placeholder="e.g. Sunday Service" required maxlength="60" />
+        <button type="submit" class="btn btn-primary btn-full">+ Create Event</button>
+      </form>
+      <p id="eventsError" class="error hidden"></p>
+      <ul id="eventsList" class="entity-list"></ul>
+      <button id="eventsLogoutBtn" class="btn btn-small">Log Out</button>
+    </div>
+  </div>
+
+  <!-- Start screen: shown after an event is chosen, before a session exists -->
+  <div id="startScreen" class="start-screen hidden">
+    <div class="card start-card">
+      <h1 id="startScreenTitle">Keyboard Player</h1>
       <p>Start a session, then give the code to your singer.</p>
       <label for="customCodeInput">Session code (optional)</label>
       <input id="customCodeInput" placeholder="Leave blank for a random code" maxlength="12" autocomplete="off" autocapitalize="characters" />
       <button id="startBtn" class="btn btn-primary btn-full">Start Session</button>
       <p id="startError" class="error hidden"></p>
+      <button id="switchEventBtn" class="btn btn-small">Switch Event</button>
     </div>
   </div>
 
@@ -26,12 +70,13 @@
     <header class="topbar">
       <div class="brand">StageCue</div>
       <div class="session-info">
+        <span class="code-pill" id="eventNamePill">Event</span>
         <span class="code-pill">Code: <strong id="codeDisplay">-----</strong></span>
         <span id="playerConnStatus" class="status-pill hidden"><span class="status-dot online"></span> Connected</span>
         <span id="singerStatus" class="status-pill"><span class="status-dot"></span> Singer not connected</span>
       </div>
       <div class="topbar-actions">
-        <button id="manageToggleBtn" class="btn btn-primary btn-small">Launch Event</button>
+        <button id="manageToggleBtn" class="btn btn-primary btn-small">Go Live</button>
         <button id="endSessionBtn" class="btn btn-danger btn-small">End</button>
       </div>
     </header>
@@ -41,11 +86,13 @@
     <!-- ============ LIVE SCREEN: shown after "Launch Event" - just what's needed to run the show ============ -->
     <div id="liveScreen" class="hidden">
 
-      <!-- Lyrics box: independent of the message box below - both can show at once -->
+      <!-- Lyrics box: independent of the message box below - both can show at once.
+           "Hide Lyrics" only affects this screen - the singer always still sees them. -->
       <section class="card live-card">
         <div class="section-head">
           <h2>Lyrics</h2>
           <div class="font-controls">
+            <button class="btn btn-small" id="hideLyricsBtn">Hide Lyrics</button>
             <button class="btn btn-small" id="fontDownBtn">A-</button>
             <button class="btn btn-small" id="fontUpBtn">A+</button>
           </div>
@@ -54,6 +101,7 @@
         <div id="nowShowing" class="now-showing">
           <p class="muted">No song selected.</p>
         </div>
+        <p id="lyricsHiddenNote" class="muted lyrics-hidden-note hidden">Lyrics hidden on this screen (the singer still sees them).</p>
 
         <div class="line-controls big">
           <button id="prevLineBtn" class="btn btn-big" disabled>&larr; Prev Line</button>
@@ -64,6 +112,9 @@
       <section class="card live-card">
         <button id="nextSongBtn" class="btn btn-primary btn-big btn-full">&#9654;&#9654; Next Song</button>
         <p id="upNextLabel" class="muted up-next">Queue is empty &mdash; add songs in Setup.</p>
+        <h2 class="playlist-heading">Playlist</h2>
+        <p class="muted small-note">Tap any song to send it now.</p>
+        <ol id="liveQueueList" class="queue-list"></ol>
       </section>
 
       <!-- Message box: shows on top of the lyrics on the singer's screen, doesn't replace them -->
@@ -108,6 +159,15 @@
               <label>Title<input id="songTitle" required /></label>
               <label>Artist<input id="songArtist" /></label>
               <label>Lyrics<textarea id="songLyrics" rows="6" placeholder="One line per line of lyrics"></textarea></label>
+
+              <label>This song's own quick messages (in addition to your default presets)</label>
+              <ul id="songPresetDraftList" class="entity-list"></ul>
+              <div class="song-preset-add-row">
+                <input id="songPresetLabelInput" placeholder="Button label" maxlength="24" />
+                <input id="songPresetMessageInput" placeholder="Message sent" maxlength="200" />
+                <button type="button" id="songPresetAddBtn" class="btn btn-small">Add</button>
+              </div>
+
               <div class="form-actions">
                 <button type="submit" class="btn btn-primary btn-small">Save Song</button>
                 <button type="button" id="songCancelBtn" class="btn btn-small hidden">Cancel Edit</button>

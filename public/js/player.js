@@ -8,37 +8,68 @@
   let currentIndex = -1;
   let sessionCode = null;
   let singerCount = 0;
+  let currentUser = null;
+  let currentEventId = null;
+  let currentEventName = null;
 
   // song and message are independent - either, both, or neither can be showing at once.
-  let liveState = { message: '', song: null, highlightLine: -1, fontScale: 'normal' };
+  let liveState = { message: '', song: null, highlightLine: -1 };
+  // Text size is a local, per-person preference - never sent to the singer.
   const FONT_SCALES = ['small', 'normal', 'large', 'xlarge'];
 
   // ---------- API helpers ----------
-  async function apiGet(url) { return (await fetch(url)).json(); }
+  async function apiGet(url) { return (await fetch(url, { credentials: 'same-origin' })).json(); }
   async function apiPost(url, body) {
-    return (await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
+    return (await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
   }
   async function apiPut(url, body) {
-    return (await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
+    return (await fetch(url, { method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
   }
   async function apiDelete(url) {
-    return (await fetch(url, { method: 'DELETE' })).json();
+    return (await fetch(url, { method: 'DELETE', credentials: 'same-origin' })).json();
   }
 
   function findSong(id) { return songs.find((s) => s.id === id); }
 
   // ---------- DOM refs ----------
+  const authScreen = document.getElementById('authScreen');
+  const loginForm = document.getElementById('loginForm');
+  const loginUsername = document.getElementById('loginUsername');
+  const loginPassword = document.getElementById('loginPassword');
+  const authError = document.getElementById('authError');
+  const showRegisterBtn = document.getElementById('showRegisterBtn');
+  const googleLoginBtn = document.getElementById('googleLoginBtn');
+  const registerCard = document.getElementById('registerCard');
+  const registerForm = document.getElementById('registerForm');
+  const registerUsername = document.getElementById('registerUsername');
+  const registerPassword = document.getElementById('registerPassword');
+  const registerError = document.getElementById('registerError');
+  const showLoginBtn = document.getElementById('showLoginBtn');
+
+  const eventsScreen = document.getElementById('eventsScreen');
+  const loggedInAs = document.getElementById('loggedInAs');
+  const createEventForm = document.getElementById('createEventForm');
+  const newEventName = document.getElementById('newEventName');
+  const eventsError = document.getElementById('eventsError');
+  const eventsList = document.getElementById('eventsList');
+  const eventsLogoutBtn = document.getElementById('eventsLogoutBtn');
+
   const startScreen = document.getElementById('startScreen');
+  const startScreenTitle = document.getElementById('startScreenTitle');
+  const switchEventBtn = document.getElementById('switchEventBtn');
   const mainScreen = document.getElementById('mainScreen');
   const startBtn = document.getElementById('startBtn');
   const customCodeInput = document.getElementById('customCodeInput');
   const startError = document.getElementById('startError');
   const codeDisplay = document.getElementById('codeDisplay');
+  const eventNamePill = document.getElementById('eventNamePill');
   const singerStatus = document.getElementById('singerStatus');
   const playerConnStatus = document.getElementById('playerConnStatus');
   const endSessionBtn = document.getElementById('endSessionBtn');
 
   const nowShowing = document.getElementById('nowShowing');
+  const lyricsHiddenNote = document.getElementById('lyricsHiddenNote');
+  const hideLyricsBtn = document.getElementById('hideLyricsBtn');
   const clearScreenBtn = document.getElementById('clearScreenBtn');
   const fontUpBtn = document.getElementById('fontUpBtn');
   const fontDownBtn = document.getElementById('fontDownBtn');
@@ -55,6 +86,7 @@
 
   const nextSongBtn = document.getElementById('nextSongBtn');
   const upNextLabel = document.getElementById('upNextLabel');
+  const liveQueueList = document.getElementById('liveQueueList');
 
   const playlistLoadSelect = document.getElementById('playlistLoadSelect');
   const loadPlaylistBtn = document.getElementById('loadPlaylistBtn');
@@ -69,17 +101,148 @@
   const manageScreen = document.getElementById('manageScreen');
   const manageToggleBtn = document.getElementById('manageToggleBtn');
 
+  // ---------- Screens ----------
+  const ALL_SCREENS = [authScreen, eventsScreen, startScreen, mainScreen];
+  function showScreen(screen) {
+    ALL_SCREENS.forEach((s) => s.classList.toggle('hidden', s !== screen));
+  }
+
+  // ---------- Auth ----------
+  function showAuthCard(which) {
+    authError.classList.add('hidden');
+    registerError.classList.add('hidden');
+    document.getElementById('loginForm').closest('.card').classList.toggle('hidden', which !== 'login');
+    registerCard.classList.toggle('hidden', which !== 'register');
+  }
+  showRegisterBtn.addEventListener('click', () => showAuthCard('register'));
+  showLoginBtn.addEventListener('click', () => showAuthCard('login'));
+
+  async function afterLogin(user) {
+    currentUser = user;
+    loggedInAs.textContent = user.username;
+    await loadEvents();
+    showScreen(eventsScreen);
+  }
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    authError.classList.add('hidden');
+    const res = await fetch('/api/auth/login', {
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: loginUsername.value.trim(), password: loginPassword.value }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      authError.textContent = data.error || 'Could not log in.';
+      authError.classList.remove('hidden');
+      return;
+    }
+    await afterLogin(data.user);
+  });
+
+  registerForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    registerError.classList.add('hidden');
+    const res = await fetch('/api/auth/register', {
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: registerUsername.value.trim(), password: registerPassword.value, role: 'player' }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      registerError.textContent = data.error || 'Could not register.';
+      registerError.classList.remove('hidden');
+      return;
+    }
+    await afterLogin(data.user);
+  });
+
+  async function logOut() {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    location.reload();
+  }
+  eventsLogoutBtn.addEventListener('click', logOut);
+
+  // ---------- Events ----------
+  // Each event has its own completely separate songs, playlists, and presets.
+  let eventsCache = [];
+
+  async function loadEvents() {
+    eventsCache = await apiGet('/api/events');
+    renderEventsList();
+  }
+
+  function renderEventsList() {
+    eventsList.innerHTML = '';
+    if (eventsCache.length === 0) {
+      eventsList.innerHTML = '<li class="muted">No events yet. Create one above.</li>';
+      return;
+    }
+    eventsCache.forEach((ev) => {
+      const li = document.createElement('li');
+      li.className = 'entity-item';
+      li.innerHTML = `
+        <div class="info"><strong>${escapeHtml(ev.name)}</strong></div>
+        <div class="actions">
+          <button class="btn btn-small btn-primary" data-act="open">Open</button>
+          <button class="btn btn-small btn-danger" data-act="del">Del</button>
+        </div>`;
+      li.querySelector('[data-act="open"]').addEventListener('click', () => openEvent(ev));
+      li.querySelector('[data-act="del"]').addEventListener('click', async () => {
+        if (!confirm(`Delete event "${ev.name}"? This also deletes its songs, playlists, and presets.`)) return;
+        await apiDelete(`/api/events/${ev.id}`);
+        eventsCache = eventsCache.filter((e) => e.id !== ev.id);
+        renderEventsList();
+      });
+      eventsList.appendChild(li);
+    });
+  }
+
+  createEventForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    eventsError.classList.add('hidden');
+    const name = newEventName.value.trim();
+    if (!name) return;
+    const created = await apiPost('/api/events', { name });
+    if (created.error) {
+      eventsError.textContent = created.error;
+      eventsError.classList.remove('hidden');
+      return;
+    }
+    eventsCache.push(created);
+    newEventName.value = '';
+    renderEventsList();
+    openEvent(created);
+  });
+
+  async function openEvent(ev) {
+    currentEventId = ev.id;
+    currentEventName = ev.name;
+    eventNamePill.textContent = `Event: ${ev.name}`;
+    startScreenTitle.textContent = ev.name;
+    await loadEventData();
+    showScreen(startScreen);
+  }
+
+  switchEventBtn.addEventListener('click', async () => {
+    currentEventId = null;
+    currentEventName = null;
+    await loadEvents();
+    showScreen(eventsScreen);
+  });
+
   // ---------- Session lifecycle ----------
   const SESSION_KEY = 'stagecue_session_code';
+  const SESSION_EVENT_ID_KEY = 'stagecue_session_event_id';
+  const SESSION_EVENT_NAME_KEY = 'stagecue_session_event_name';
 
   function enterSession(code, state) {
     sessionCode = code;
     codeDisplay.textContent = code;
-    startScreen.classList.add('hidden');
-    mainScreen.classList.remove('hidden');
+    showScreen(mainScreen);
     if (state) liveState = state;
     renderNowShowing();
     renderCurrentMessage();
+    renderPresetGrid();
   }
 
   startBtn.addEventListener('click', () => {
@@ -91,6 +254,8 @@
         return;
       }
       localStorage.setItem(SESSION_KEY, ack.code);
+      localStorage.setItem(SESSION_EVENT_ID_KEY, currentEventId);
+      localStorage.setItem(SESSION_EVENT_NAME_KEY, currentEventName || '');
       enterSession(ack.code, null);
     });
   });
@@ -98,27 +263,41 @@
   endSessionBtn.addEventListener('click', () => {
     if (!confirm('End this session? The singer will be disconnected.')) return;
     localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(SESSION_EVENT_ID_KEY);
+    localStorage.removeItem(SESSION_EVENT_NAME_KEY);
     socket.disconnect();
     location.reload();
   });
 
   // Runs on first connect AND every automatic reconnect after a dropped
-  // connection - reclaims the in-progress session instead of losing it.
+  // connection - reclaims the in-progress session (and its event's data)
+  // instead of losing it or bouncing back to the login/events screens.
   socket.on('connect', () => {
     setConnBadge(true);
     const saved = localStorage.getItem(SESSION_KEY);
     if (!saved) return;
-    socket.emit('player:resume', saved, (ack) => {
-      if (ack && ack.ok) {
-        enterSession(ack.code, ack.state);
-        return;
+    (async () => {
+      const savedEventId = localStorage.getItem(SESSION_EVENT_ID_KEY);
+      if (savedEventId && savedEventId !== currentEventId) {
+        currentEventId = savedEventId;
+        currentEventName = localStorage.getItem(SESSION_EVENT_NAME_KEY) || '';
+        eventNamePill.textContent = `Event: ${currentEventName}`;
+        await loadEventData();
       }
-      localStorage.removeItem(SESSION_KEY);
-      if (sessionCode) {
-        alert('This session could not be recovered after a long disconnect. Please start a new one.');
-        location.reload();
-      }
-    });
+      socket.emit('player:resume', saved, (ack) => {
+        if (ack && ack.ok) {
+          enterSession(ack.code, ack.state);
+          return;
+        }
+        localStorage.removeItem(SESSION_KEY);
+        localStorage.removeItem(SESSION_EVENT_ID_KEY);
+        localStorage.removeItem(SESSION_EVENT_NAME_KEY);
+        if (sessionCode) {
+          alert('This session could not be recovered after a long disconnect. Please start a new one.');
+          location.reload();
+        }
+      });
+    })();
   });
 
   socket.on('disconnect', () => setConnBadge(false));
@@ -131,14 +310,14 @@
     playerConnStatus.lastChild.textContent = online ? ' Connected' : ' Reconnecting...';
   }
 
-  // liveScreen is the performance view (reached via "Launch Event"); manageScreen
+  // liveScreen is the performance view (reached via "Go Live"); manageScreen
   // is the setup view (songs/playlists/presets/queue), shown by default so the
-  // singer can already be connected and ready before the event actually starts.
+  // singer can already be connected and ready before the show actually starts.
   manageToggleBtn.addEventListener('click', () => {
     const goingToManage = liveScreen.classList.contains('hidden') === false;
     liveScreen.classList.toggle('hidden', goingToManage);
     manageScreen.classList.toggle('hidden', !goingToManage);
-    manageToggleBtn.textContent = goingToManage ? 'Launch Event' : 'Edit Setup';
+    manageToggleBtn.textContent = goingToManage ? 'Go Live' : 'Edit Setup';
   });
 
   socket.on('singer:joined', ({ count }) => {
@@ -179,12 +358,41 @@
     socket.emit('player:update', partial);
     renderNowShowing();
     renderCurrentMessage();
+    if ('song' in partial) renderPresetGrid(); // song presets depend on the current song
   }
 
+  // Hiding lyrics only affects this screen - it never touches liveState, so the
+  // singer's screen is completely unaffected by it.
+  let lyricsHiddenLocally = localStorage.getItem('stagecue_lyrics_hidden') === 'true';
+
+  function updateHideLyricsBtn() {
+    hideLyricsBtn.textContent = lyricsHiddenLocally ? 'Show Lyrics' : 'Hide Lyrics';
+  }
+  updateHideLyricsBtn();
+
+  hideLyricsBtn.addEventListener('click', () => {
+    lyricsHiddenLocally = !lyricsHiddenLocally;
+    localStorage.setItem('stagecue_lyrics_hidden', String(lyricsHiddenLocally));
+    updateHideLyricsBtn();
+    renderNowShowing();
+  });
+
   function renderNowShowing() {
+    // Prev/Next Line stay enabled by song presence alone, regardless of the
+    // hide-lyrics toggle, so the player can still cue lines from memory.
+    prevLineBtn.disabled = !liveState.song;
+    nextLineBtn.disabled = !liveState.song;
+
+    if (lyricsHiddenLocally) {
+      nowShowing.innerHTML = '';
+      nowShowing.classList.add('hidden');
+      lyricsHiddenNote.classList.remove('hidden');
+      return;
+    }
+    nowShowing.classList.remove('hidden');
+    lyricsHiddenNote.classList.add('hidden');
+
     nowShowing.innerHTML = '';
-    prevLineBtn.disabled = true;
-    nextLineBtn.disabled = true;
 
     if (!liveState.song) {
       nowShowing.innerHTML = '<p class="muted">No song selected.</p>';
@@ -210,9 +418,6 @@
       div.addEventListener('click', () => pushUpdate({ highlightLine: idx }));
       nowShowing.appendChild(div);
     });
-
-    prevLineBtn.disabled = false;
-    nextLineBtn.disabled = false;
   }
 
   function renderCurrentMessage() {
@@ -246,13 +451,31 @@
     pushUpdate({ message: '', song: null, highlightLine: -1 });
   });
 
+  // The player's own text size - purely local (localStorage), affects only
+  // how big the Lyrics/Message boxes look on THIS screen. Never sent to the singer.
+  let playerFontScale = localStorage.getItem('stagecue_player_font_scale') || 'normal';
+
+  function applyPlayerFontScale() {
+    FONT_SCALES.forEach((s) => {
+      nowShowing.classList.remove('text-scale-' + s);
+      currentMessage.classList.remove('text-scale-' + s);
+    });
+    nowShowing.classList.add('text-scale-' + playerFontScale);
+    currentMessage.classList.add('text-scale-' + playerFontScale);
+  }
+  applyPlayerFontScale();
+
   fontUpBtn.addEventListener('click', () => {
-    const i = Math.min(FONT_SCALES.length - 1, FONT_SCALES.indexOf(liveState.fontScale) + 1);
-    pushUpdate({ fontScale: FONT_SCALES[i] });
+    const i = Math.min(FONT_SCALES.length - 1, FONT_SCALES.indexOf(playerFontScale) + 1);
+    playerFontScale = FONT_SCALES[i];
+    localStorage.setItem('stagecue_player_font_scale', playerFontScale);
+    applyPlayerFontScale();
   });
   fontDownBtn.addEventListener('click', () => {
-    const i = Math.max(0, FONT_SCALES.indexOf(liveState.fontScale) - 1);
-    pushUpdate({ fontScale: FONT_SCALES[i] });
+    const i = Math.max(0, FONT_SCALES.indexOf(playerFontScale) - 1);
+    playerFontScale = FONT_SCALES[i];
+    localStorage.setItem('stagecue_player_font_scale', playerFontScale);
+    applyPlayerFontScale();
   });
 
   // ---------- Messages & presets ----------
@@ -271,8 +494,11 @@
     if (!messageBox.classList.contains('hidden')) messageInput.focus();
   });
 
+  // Shows the global default presets plus (if a song is currently loaded)
+  // that song's own quick messages, visually marked so it's clear which is which.
   function renderPresetGrid() {
     presetGrid.innerHTML = '';
+    const songPresets = (liveState.song && liveState.song.presets) || [];
     presets.forEach((p) => {
       const btn = document.createElement('button');
       btn.className = 'btn';
@@ -280,18 +506,27 @@
       btn.addEventListener('click', () => pushUpdate({ message: p.message }));
       presetGrid.appendChild(btn);
     });
+    songPresets.forEach((p) => {
+      const btn = document.createElement('button');
+      btn.className = 'btn preset-song-specific';
+      btn.title = 'Quick message for this song';
+      btn.textContent = p.label;
+      btn.addEventListener('click', () => pushUpdate({ message: p.message }));
+      presetGrid.appendChild(btn);
+    });
   }
 
   // ---------- Queue ----------
+  // Namespaced per-event so switching events doesn't mix up their queues.
   function persistQueue() {
-    localStorage.setItem('stagecue_queue', JSON.stringify(queue));
-    localStorage.setItem('stagecue_currentIndex', String(currentIndex));
+    localStorage.setItem(`stagecue_queue_${currentEventId}`, JSON.stringify(queue));
+    localStorage.setItem(`stagecue_currentIndex_${currentEventId}`, String(currentIndex));
   }
   function restoreQueue() {
     try {
-      const q = JSON.parse(localStorage.getItem('stagecue_queue') || '[]');
+      const q = JSON.parse(localStorage.getItem(`stagecue_queue_${currentEventId}`) || '[]');
       queue = q.filter((id) => findSong(id));
-      currentIndex = parseInt(localStorage.getItem('stagecue_currentIndex') || '-1', 10);
+      currentIndex = parseInt(localStorage.getItem(`stagecue_currentIndex_${currentEventId}`) || '-1', 10);
       if (currentIndex >= queue.length) currentIndex = -1;
     } catch {
       queue = [];
@@ -325,6 +560,26 @@
       });
     }
     renderUpNext();
+    renderLiveQueueList();
+  }
+
+  // Compact, tap-to-send version of the queue for the Live screen - no
+  // reorder/remove controls (those stay in Setup), just "tap it, it plays now".
+  function renderLiveQueueList() {
+    liveQueueList.innerHTML = '';
+    if (queue.length === 0) {
+      liveQueueList.innerHTML = '<li class="muted">Queue is empty. Add songs in Setup.</li>';
+      return;
+    }
+    queue.forEach((songId, idx) => {
+      const song = findSong(songId);
+      if (!song) return;
+      const li = document.createElement('li');
+      li.className = 'queue-item tappable' + (idx === currentIndex ? ' current' : '');
+      li.innerHTML = `<div class="info"><strong>${idx + 1}. ${escapeHtml(song.title)}</strong><span>${escapeHtml(song.artist || '')}</span></div>`;
+      li.addEventListener('click', () => sendSongToSinger(idx));
+      liveQueueList.appendChild(li);
+    });
   }
 
   function renderUpNext() {
@@ -372,7 +627,7 @@
     currentIndex = idx;
     persistQueue();
     renderQueue();
-    pushUpdate({ song: { title: song.title, artist: song.artist, lines: (song.lyrics || '').split('\n') }, highlightLine: -1 });
+    pushUpdate({ song: { title: song.title, artist: song.artist, lines: (song.lyrics || '').split('\n'), presets: song.presets || [] }, highlightLine: -1 });
   }
 
   function addToQueue(songId) {
@@ -404,7 +659,7 @@
     if (queue.length === 0) return alert('Queue is empty.');
     const name = prompt('Name this playlist:');
     if (!name) return;
-    const created = await apiPost('/api/playlists', { name, songIds: queue });
+    const created = await apiPost('/api/playlists', { name, songIds: queue, eventId: currentEventId });
     playlists.push(created);
     renderPlaylistOptions();
     renderPlaylistLibraryList();
@@ -418,10 +673,48 @@
   const songLyrics = document.getElementById('songLyrics');
   const songCancelBtn = document.getElementById('songCancelBtn');
   const songLibraryList = document.getElementById('songLibraryList');
+  const songPresetDraftList = document.getElementById('songPresetDraftList');
+  const songPresetLabelInput = document.getElementById('songPresetLabelInput');
+  const songPresetMessageInput = document.getElementById('songPresetMessageInput');
+  const songPresetAddBtn = document.getElementById('songPresetAddBtn');
+
+  // Draft of this song's own quick messages, edited in-memory while the form
+  // is open and saved along with the rest of the song on submit.
+  let songPresetDraft = [];
+
+  function renderSongPresetDraftList() {
+    songPresetDraftList.innerHTML = '';
+    if (songPresetDraft.length === 0) {
+      songPresetDraftList.innerHTML = '<li class="muted">None yet.</li>';
+      return;
+    }
+    songPresetDraft.forEach((p, idx) => {
+      const li = document.createElement('li');
+      li.className = 'entity-item';
+      li.innerHTML = `
+        <div class="info"><strong>${escapeHtml(p.label)}</strong><span>${escapeHtml(p.message)}</span></div>
+        <div class="actions"><button type="button" class="btn btn-small btn-danger" data-act="del">Del</button></div>`;
+      li.querySelector('[data-act="del"]').addEventListener('click', () => {
+        songPresetDraft.splice(idx, 1);
+        renderSongPresetDraftList();
+      });
+      songPresetDraftList.appendChild(li);
+    });
+  }
+
+  songPresetAddBtn.addEventListener('click', () => {
+    const label = songPresetLabelInput.value.trim();
+    const message = songPresetMessageInput.value.trim();
+    if (!label || !message) return;
+    songPresetDraft.push({ id: 'sp-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), label, message });
+    songPresetLabelInput.value = '';
+    songPresetMessageInput.value = '';
+    renderSongPresetDraftList();
+  });
 
   songForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const payload = { title: songTitle.value.trim(), artist: songArtist.value.trim(), lyrics: songLyrics.value };
+    const payload = { title: songTitle.value.trim(), artist: songArtist.value.trim(), lyrics: songLyrics.value, presets: songPresetDraft, eventId: currentEventId };
     if (songIdField.value) {
       const updated = await apiPut(`/api/songs/${songIdField.value}`, payload);
       const idx = songs.findIndex((s) => s.id === updated.id);
@@ -442,6 +735,8 @@
     songIdField.value = '';
     songForm.reset();
     songCancelBtn.classList.add('hidden');
+    songPresetDraft = [];
+    renderSongPresetDraftList();
   }
 
   function renderSongLibraryList() {
@@ -466,6 +761,8 @@
         songTitle.value = song.title;
         songArtist.value = song.artist || '';
         songLyrics.value = song.lyrics || '';
+        songPresetDraft = (song.presets || []).slice();
+        renderSongPresetDraftList();
         songCancelBtn.classList.remove('hidden');
         selectTab('library');
       });
@@ -511,7 +808,7 @@
   playlistForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const songIds = Array.from(playlistSongChecks.querySelectorAll('input:checked')).map((i) => i.value);
-    const payload = { name: playlistName.value.trim(), songIds };
+    const payload = { name: playlistName.value.trim(), songIds, eventId: currentEventId };
     if (playlistIdField.value) {
       const updated = await apiPut(`/api/playlists/${playlistIdField.value}`, payload);
       const idx = playlists.findIndex((p) => p.id === updated.id);
@@ -594,7 +891,7 @@
 
   presetForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const payload = { label: presetLabel.value.trim(), message: presetMessage.value.trim() };
+    const payload = { label: presetLabel.value.trim(), message: presetMessage.value.trim(), eventId: currentEventId };
     if (presetIdField.value) {
       const updated = await apiPut(`/api/presets/${presetIdField.value}`, payload);
       const idx = presets.findIndex((p) => p.id === updated.id);
@@ -661,9 +958,15 @@
     return String(str || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
-  // ---------- Init ----------
-  async function init() {
-    [songs, playlists, presets] = await Promise.all([apiGet('/api/songs'), apiGet('/api/playlists'), apiGet('/api/presets')]);
+  // ---------- Loading an event's data ----------
+  // Called once an event is chosen (or restored on reconnect) - everything here
+  // is scoped to currentEventId, so switching events never mixes up libraries.
+  async function loadEventData() {
+    [songs, playlists, presets] = await Promise.all([
+      apiGet(`/api/songs?eventId=${currentEventId}`),
+      apiGet(`/api/playlists?eventId=${currentEventId}`),
+      apiGet(`/api/presets?eventId=${currentEventId}`),
+    ]);
     restoreQueue();
     renderSongLibraryList();
     renderPlaylistLibraryList();
@@ -671,10 +974,34 @@
     renderPlaylistSongChecks();
     renderPresetLibraryList();
     renderPresetGrid();
+    renderSongPresetDraftList();
     renderQueue();
     renderNowShowing();
     renderCurrentMessage();
   }
 
-  init();
+  // ---------- Boot ----------
+  async function boot() {
+    fetch('/api/config', { credentials: 'same-origin' })
+      .then((r) => r.json())
+      .then((cfg) => { if (cfg.googleEnabled) googleLoginBtn.classList.remove('hidden'); })
+      .catch(() => {});
+
+    const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
+    const data = await res.json();
+    if (!data.user) {
+      showScreen(authScreen);
+      return;
+    }
+    currentUser = data.user;
+    loggedInAs.textContent = data.user.username;
+    // If there's a live session to resume, let the socket 'connect' handler's
+    // resume flow own screen navigation instead - otherwise this and that would
+    // race, and whichever finishes last (usually the events screen) wins wrongly.
+    if (localStorage.getItem(SESSION_KEY)) return;
+    await loadEvents();
+    showScreen(eventsScreen);
+  }
+
+  boot();
 })();
