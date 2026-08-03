@@ -1,0 +1,14 @@
+{
+  "name": "stagecue",
+  "version": "1.0.0",
+  "description": "StageCue - live cue and lyrics display connecting a keyboard player to a singer",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}

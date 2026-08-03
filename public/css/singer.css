@@ -1,0 +1,90 @@
+.join-screen {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.join-card { text-align: center; max-width: 340px; width: 100%; }
+.join-card p { color: var(--muted); }
+#codeInput {
+  text-align: center;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+.error { color: var(--danger); font-size: 14px; }
+
+.live-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.top-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.display {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 30px 20px;
+  overflow-y: auto;
+  gap: 10px;
+}
+.display .waiting { color: var(--muted); font-size: 1.3rem; }
+.display .message-text {
+  font-weight: 700;
+  line-height: 1.3;
+}
+.display .song-title { font-weight: 800; }
+.display .song-artist { color: var(--muted); }
+.display .lyrics-block { width: 100%; max-width: 800px; }
+.display .lyric-line {
+  padding: 6px 0;
+  color: var(--muted);
+  transition: color 0.2s, transform 0.2s;
+}
+.display .lyric-line.active {
+  color: var(--text);
+  font-weight: 800;
+  transform: scale(1.04);
+}
+
+/* font scale classes, applied to #display */
+.display.scale-small { font-size: 1.1rem; }
+.display.scale-small .message-text { font-size: 2rem; }
+.display.scale-small .song-title { font-size: 1.6rem; }
+
+.display.scale-normal { font-size: 1.4rem; }
+.display.scale-normal .message-text { font-size: 2.8rem; }
+.display.scale-normal .song-title { font-size: 2rem; }
+
+.display.scale-large { font-size: 1.8rem; }
+.display.scale-large .message-text { font-size: 3.6rem; }
+.display.scale-large .song-title { font-size: 2.4rem; }
+
+.display.scale-xlarge { font-size: 2.3rem; }
+.display.scale-xlarge .message-text { font-size: 4.4rem; }
+.display.scale-xlarge .song-title { font-size: 2.9rem; }
+
+.reply-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 14px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+.reply-bar button { flex: 1 1 140px; }
