@@ -77,7 +77,7 @@
 
 .layout {
   display: grid;
-  grid-template-columns: 1fr 340px;
+  grid-template-columns: 340px 1fr;
   gap: 18px;
   padding: 18px;
   max-width: 1300px;

@@ -91,26 +91,9 @@
     <!-- ============ SETUP SCREEN: default view - songs, playlists, presets, queue ============ -->
     <div id="manageScreen">
       <div class="layout">
-        <main class="main-col">
-          <section class="card">
-            <h2>Live Queue</h2>
-            <div class="queue-toolbar">
-              <select id="playlistLoadSelect"><option value="">Load a playlist into queue...</option></select>
-              <button id="loadPlaylistBtn" class="btn btn-small">Load</button>
-              <button id="saveQueueBtn" class="btn btn-small">Save Queue as Playlist</button>
-              <button id="clearQueueBtn" class="btn btn-small btn-danger">Clear Queue</button>
-            </div>
-            <ol id="queueList" class="queue-list"></ol>
-          </section>
-
-          <section class="card">
-            <h2>Singer Says</h2>
-            <ul id="reactionsFeed" class="reactions-feed">
-              <li class="muted">No reactions yet.</li>
-            </ul>
-          </section>
-        </main>
-
+        <!-- Tabs come first in the markup so they appear ABOVE the queue on a
+             phone (narrow screens stack this grid into one column, in source
+             order) instead of being buried below several other cards. -->
         <aside class="side-col">
           <div class="tabs">
             <button class="tab-btn active" data-tab="library">Library</button>
@@ -134,7 +117,7 @@
             <ul id="songLibraryList" class="entity-list"></ul>
           </div>
 
-          <div id="tab-playlists" class="tab-panel card hidden">
+          <div id="tab-playlists" class="tab-panel card">
             <h3>Create Playlist</h3>
             <form id="playlistForm" class="stacked-form">
               <input type="hidden" id="playlistId" />
@@ -150,7 +133,7 @@
             <ul id="playlistLibraryList" class="entity-list"></ul>
           </div>
 
-          <div id="tab-presets" class="tab-panel card hidden">
+          <div id="tab-presets" class="tab-panel card">
             <h3>Create Preset</h3>
             <form id="presetForm" class="stacked-form">
               <input type="hidden" id="presetId" />
@@ -165,6 +148,26 @@
             <ul id="presetLibraryList" class="entity-list"></ul>
           </div>
         </aside>
+
+        <main class="main-col">
+          <section class="card">
+            <h2>Live Queue</h2>
+            <div class="queue-toolbar">
+              <select id="playlistLoadSelect"><option value="">Load a playlist into queue...</option></select>
+              <button id="loadPlaylistBtn" class="btn btn-small">Load</button>
+              <button id="saveQueueBtn" class="btn btn-small">Save Queue as Playlist</button>
+              <button id="clearQueueBtn" class="btn btn-small btn-danger">Clear Queue</button>
+            </div>
+            <ol id="queueList" class="queue-list"></ol>
+          </section>
+
+          <section class="card">
+            <h2>Singer Says</h2>
+            <ul id="reactionsFeed" class="reactions-feed">
+              <li class="muted">No reactions yet.</li>
+            </ul>
+          </section>
+        </main>
       </div>
     </div>
   </div>
