@@ -187,8 +187,102 @@
   margin: 0 auto;
   width: 100%;
 }
+.mobile-panel-toggle { display: none; }
+.panel-toggle-btn.active { background: var(--accent); color: #fff; font-weight: 600; border-color: var(--accent); }
+.song-form-toggle { display: none; }
+
 @media (max-width: 680px) {
   .layout { grid-template-columns: 1fr; }
+
+  /* On a phone, Library and Queue used to stack on top of each other,
+     which is what forced the whole setup screen to scroll as one long
+     page once either side had real content. They're now two full-height
+     views switched with a toggle - only one is ever on screen, each
+     sized to fit, with only its own list growing then scrolling
+     internally (same principle as everywhere else in the app). */
+  .mobile-panel-toggle { display: flex; gap: 8px; flex: 0 0 auto; margin-bottom: 10px; }
+  .mobile-panel-toggle .btn { flex: 1; }
+
+  #manageScreen { overflow: hidden; display: flex; flex-direction: column; }
+  .layout {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .side-col, .main-col {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .setup-layout-queue .side-col,
+  .layout:not(.setup-layout-queue) .main-col { display: none; }
+
+  .tabs { flex: 0 0 auto; }
+
+  /* #setupLayout-prefixed for specificity - otherwise the base, unconditional
+     ".tab-panel.active { display: block }" rule (same specificity, later in
+     this file) wins and silently clips the list instead of letting it flex. */
+  #setupLayout .tab-panel.active {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+  #setupLayout .tab-panel.active > h3,
+  #setupLayout .tab-panel.active > form,
+  #setupLayout .tab-panel.active > .song-form-toggle,
+  #setupLayout .tab-panel.active > hr,
+  #setupLayout .tab-panel.active > .search-input,
+  #setupLayout .tab-panel.active > p { flex: 0 0 auto; }
+
+  /* The Add Song form is the one form long enough to seriously crowd the
+     list below it, so on a phone it collapses behind a button by default
+     - most of the time you're browsing/queueing existing songs, not
+     adding a new one. Desktop/tablet never show this button (rule above)
+     and keep the form always open. */
+  #tab-library > h3 { display: none; }
+  .song-form-toggle { display: block; flex: 0 0 auto; margin-bottom: 8px; }
+  #setupLayout #songForm { display: none; }
+
+  /* When open, the form takes over the whole panel (the list you're not
+     looking at right now steps aside) and scrolls internally if it's
+     still taller than the space available - a long form with several
+     song-specific presets added must never get clipped by the panel's
+     own overflow:hidden the way it would with a rigid flex:0 0 auto. */
+  #tab-library.song-form-open #songForm {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  #tab-library.song-form-open > hr,
+  #tab-library.song-form-open > .search-input,
+  #tab-library.song-form-open > .entity-list { display: none; }
+  #setupLayout .tab-panel.active > .entity-list {
+    flex: 1 1 auto;
+    min-height: 60px;
+    max-height: none;
+  }
+
+  .main-col > .card {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .main-col > .card > h2,
+  .main-col > .card > .queue-toolbar { flex: 0 0 auto; }
+  .main-col .queue-list,
+  .main-col .reactions-feed {
+    flex: 1 1 auto;
+    min-height: 60px;
+    max-height: none;
+    overflow-y: auto;
+  }
 }
 @media (min-width: 681px) and (max-width: 1000px) {
   /* iPad-portrait-ish widths: still 2 columns, just narrower than desktop */
