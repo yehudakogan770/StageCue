@@ -404,6 +404,8 @@
     prevLineBtn.disabled = !liveState.song;
     nextLineBtn.disabled = !liveState.song;
 
+    liveScreen.classList.toggle('lyrics-hidden', lyricsHiddenLocally);
+
     if (lyricsHiddenLocally) {
       nowShowing.innerHTML = '';
       nowShowing.classList.add('hidden');
