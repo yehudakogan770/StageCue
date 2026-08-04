@@ -72,6 +72,11 @@
   const startError = document.getElementById('startError');
   const codeDisplay = document.getElementById('codeDisplay');
   const eventNamePill = document.getElementById('eventNamePill');
+  const showQrBtn = document.getElementById('showQrBtn');
+  const qrModal = document.getElementById('qrModal');
+  const qrImageWrap = document.getElementById('qrImageWrap');
+  const qrCodeText = document.getElementById('qrCodeText');
+  const closeQrBtn = document.getElementById('closeQrBtn');
   const singerStatus = document.getElementById('singerStatus');
   const playerConnStatus = document.getElementById('playerConnStatus');
   const endSessionBtn = document.getElementById('endSessionBtn');
@@ -337,6 +342,22 @@
     updateNowShowingFade();
     updateLiveQueueFade();
   });
+
+  showQrBtn.addEventListener('click', async () => {
+    if (!sessionCode) return;
+    const joinUrl = `${location.origin}/singer?code=${sessionCode}`;
+    qrCodeText.textContent = sessionCode;
+    qrImageWrap.innerHTML = '<p class="muted">Loading...</p>';
+    qrModal.classList.remove('hidden');
+    try {
+      const svg = await (await fetch(`/api/qr?text=${encodeURIComponent(joinUrl)}`)).text();
+      qrImageWrap.innerHTML = svg;
+    } catch {
+      qrImageWrap.innerHTML = '<p class="muted">Could not load QR code.</p>';
+    }
+  });
+  closeQrBtn.addEventListener('click', () => qrModal.classList.add('hidden'));
+  qrModal.addEventListener('click', (e) => { if (e.target === qrModal) qrModal.classList.add('hidden'); });
 
   flashSingerBtn.addEventListener('click', () => {
     socket.emit('player:flash');
