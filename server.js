@@ -411,8 +411,53 @@ app.delete('/api/events/:id', requireRole('player'), async (req, res) => {
   ['songs', 'playlists', 'presets'].forEach((resource) => {
     db[resource] = db[resource].filter((x) => x.eventId !== removed.id);
   });
+  db.history = (db.history || []).filter((h) => h.eventId !== removed.id);
   await store.save(db);
   res.json(removed);
+});
+
+// ---------- Show history ----------
+// A lightweight record of each finished session (songs played, in order,
+// plus any singer reactions) so a player can look back at past shows.
+// Captured client-side in real time (the server's live session state only
+// ever holds the CURRENT song) and submitted once, when the player ends
+// the session.
+
+app.get('/api/events/:eventId/history', requireRole('player'), async (req, res) => {
+  const db = await store.load();
+  const event = (db.events || []).find((e) => e.id === req.params.eventId && e.ownerId === req.user.id);
+  if (!event) return res.status(404).json({ error: 'Not found' });
+  const records = (db.history || [])
+    .filter((h) => h.eventId === req.params.eventId && h.ownerId === req.user.id)
+    .sort((a, b) => b.startedAt - a.startedAt);
+  res.json(records);
+});
+
+app.post('/api/events/:eventId/history', requireRole('player'), async (req, res) => {
+  const db = await store.load();
+  const event = (db.events || []).find((e) => e.id === req.params.eventId && e.ownerId === req.user.id);
+  if (!event) return res.status(404).json({ error: 'Not found' });
+
+  const record = {
+    id: store.newId('history'),
+    eventId: event.id,
+    ownerId: req.user.id,
+    startedAt: Number(req.body.startedAt) || Date.now(),
+    endedAt: Number(req.body.endedAt) || Date.now(),
+    songs: (Array.isArray(req.body.songs) ? req.body.songs : []).slice(0, 300).map((s) => ({
+      title: String(s.title || '').slice(0, 200),
+      artist: String(s.artist || '').slice(0, 200),
+      at: Number(s.at) || Date.now(),
+    })),
+    reactions: (Array.isArray(req.body.reactions) ? req.body.reactions : []).slice(0, 300).map((r) => ({
+      text: String(r.text || '').slice(0, 200),
+      at: Number(r.at) || Date.now(),
+    })),
+  };
+  db.history = db.history || [];
+  db.history.push(record);
+  await store.save(db);
+  res.status(201).json(record);
 });
 
 // ---------- REST API: songs, playlists, presets (private to each player account AND event) ----------
