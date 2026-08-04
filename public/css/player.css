@@ -309,6 +309,15 @@
 
   .preset-grid { grid-template-columns: repeat(3, 1fr); }
   .current-message { max-height: 26px; }
+
+  /* When lyrics are hidden on this screen, row 1 would otherwise still hold
+     its 1.2fr share of height (grid tracks size by available space, not
+     content), leaving a dead gap above the "Lyrics hidden" note. Collapse
+     it to content size and let the message/preset row take the freed
+     space instead. */
+  #liveScreen.lyrics-hidden {
+    grid-template-rows: auto 1fr auto auto;
+  }
 }
 
 .queue-toolbar { display: flex; gap: 8px; margin: 10px 0 14px; flex-wrap: wrap; }
