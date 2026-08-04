@@ -280,9 +280,40 @@
   const SESSION_EVENT_ID_KEY = 'stagecue_session_event_id';
   const SESSION_EVENT_NAME_KEY = 'stagecue_session_event_name';
 
+  // A running, real-time log of this session's songs/reactions, kept for the
+  // History tab. The server's live session state only ever holds the CURRENT
+  // song, so this has to be built up here as things happen, then submitted
+  // once when the session ends. Persisted to localStorage (keyed by session
+  // code) so an accidental page refresh mid-show doesn't lose it.
+  const SESSION_LOG_KEY = 'stagecue_session_log';
+  let sessionStartedAt = null;
+  let sessionSongLog = [];
+  let sessionReactionLog = [];
+
+  function persistSessionLog() {
+    localStorage.setItem(SESSION_LOG_KEY, JSON.stringify({ code: sessionCode, startedAt: sessionStartedAt, songs: sessionSongLog, reactions: sessionReactionLog }));
+  }
+
+  function restoreOrStartSessionLog(code) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SESSION_LOG_KEY) || 'null');
+      if (saved && saved.code === code) {
+        sessionStartedAt = saved.startedAt;
+        sessionSongLog = saved.songs || [];
+        sessionReactionLog = saved.reactions || [];
+        return;
+      }
+    } catch { /* fall through to a fresh log */ }
+    sessionStartedAt = Date.now();
+    sessionSongLog = [];
+    sessionReactionLog = [];
+    persistSessionLog();
+  }
+
   function enterSession(code, state) {
     sessionCode = code;
     codeDisplay.textContent = code;
+    restoreOrStartSessionLog(code);
     showScreen(mainScreen);
     if (state) liveState = state;
     renderNowShowing();
@@ -320,11 +351,19 @@
     });
   });
 
-  endSessionBtn.addEventListener('click', () => {
+  endSessionBtn.addEventListener('click', async () => {
     if (!confirm('End this session? The singer will be disconnected.')) return;
+    if (sessionSongLog.length > 0 || sessionReactionLog.length > 0) {
+      try {
+        await apiPost(`/api/events/${currentEventId}/history`, {
+          startedAt: sessionStartedAt, endedAt: Date.now(), songs: sessionSongLog, reactions: sessionReactionLog,
+        });
+      } catch { /* history is a nice-to-have - never block ending the session on it */ }
+    }
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(SESSION_EVENT_ID_KEY);
     localStorage.removeItem(SESSION_EVENT_NAME_KEY);
+    localStorage.removeItem(SESSION_LOG_KEY);
     socket.disconnect();
     location.reload();
   });
@@ -408,6 +447,9 @@
     reactionBanner.classList.remove('hidden');
     clearTimeout(bannerTimeout);
     bannerTimeout = setTimeout(() => reactionBanner.classList.add('hidden'), 4000);
+
+    sessionReactionLog.push({ text, at });
+    persistSessionLog();
   });
   reactionsFeed.dataset.empty = 'true';
 
@@ -790,6 +832,8 @@
     persistQueue();
     renderQueue();
     pushUpdate({ song: { title: song.title, artist: song.artist, lines: (song.lyrics || '').split('\n'), presets: song.presets || [] }, highlightLine: -1 });
+    sessionSongLog.push({ title: song.title, artist: song.artist || '', at: Date.now() });
+    persistSessionLog();
   }
 
   function addToQueue(songId) {
@@ -1166,8 +1210,42 @@
   function selectTab(name) {
     document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
     document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === `tab-${name}`));
+    if (name === 'history') loadHistory();
   }
   document.querySelectorAll('.tab-btn').forEach((btn) => btn.addEventListener('click', () => selectTab(btn.dataset.tab)));
+
+  // ---------- Show history ----------
+  const historyList = document.getElementById('historyList');
+
+  async function loadHistory() {
+    historyList.innerHTML = '<li class="muted">Loading...</li>';
+    const records = await apiGet(`/api/events/${currentEventId}/history`);
+    if (!Array.isArray(records) || records.length === 0) {
+      historyList.innerHTML = '<li class="muted">No past sessions for this event yet.</li>';
+      return;
+    }
+    historyList.innerHTML = '';
+    records.forEach((rec) => {
+      const li = document.createElement('li');
+      li.className = 'history-item';
+      const dateLabel = new Date(rec.startedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+      const songRows = rec.songs.map((s) => {
+        const time = new Date(s.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return `<li><span class="time">${time}</span>${escapeHtml(s.title)}${s.artist ? ` &mdash; ${escapeHtml(s.artist)}` : ''}</li>`;
+      }).join('');
+      const reactionRows = rec.reactions.map((r) => {
+        const time = new Date(r.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return `<li><span class="time">${time}</span>${escapeHtml(r.text)}</li>`;
+      }).join('');
+      li.innerHTML = `
+        <details>
+          <summary><strong>${dateLabel}</strong> <span class="muted">&mdash; ${rec.songs.length} song${rec.songs.length === 1 ? '' : 's'}</span></summary>
+          ${songRows ? `<ol class="history-song-list">${songRows}</ol>` : '<p class="muted small-note">No songs sent.</p>'}
+          ${reactionRows ? `<p class="muted small-note">Reactions:</p><ul class="history-reaction-list">${reactionRows}</ul>` : ''}
+        </details>`;
+      historyList.appendChild(li);
+    });
+  }
 
   // ---------- Utility ----------
   function escapeHtml(str) {

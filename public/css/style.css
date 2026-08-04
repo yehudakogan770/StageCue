@@ -128,6 +128,30 @@ input:focus, textarea:focus, select:focus {
   color: var(--muted);
 }
 .account-email-details .song-preset-add-row { margin-top: 10px; }
+
+.history-item {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+.history-item summary {
+  cursor: pointer;
+  font-size: 13.5px;
+}
+.history-item summary .muted { font-size: 12px; }
+.history-song-list, .history-reaction-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.history-song-list .time, .history-reaction-list .time { color: var(--muted-2); margin-right: 6px; }
+.history-reaction-list { margin-top: 8px; }
 input::placeholder, textarea::placeholder { color: var(--muted-2); }
 
 label {
