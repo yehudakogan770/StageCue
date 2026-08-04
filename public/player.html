@@ -112,7 +112,6 @@
         </div>
       </div>
       <div class="topbar-actions">
-        <button id="flashSingerBtn" class="btn btn-small" title="Flash the singer's screen to get their attention">Flash</button>
         <button id="manageToggleBtn" class="btn btn-primary btn-small">Go Live</button>
         <button id="endSessionBtn" class="btn btn-danger btn-small">End</button>
       </div>
@@ -179,7 +178,10 @@
       <hr class="live-divider" />
 
       <section class="live-block live-block-shrink">
-        <button id="nextSongBtn" class="btn btn-primary btn-big btn-full"><svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M5 5l8 7-8 7V5z"/><path d="M14 5l8 7-8 7V5z"/></svg> Next Song</button>
+        <div class="shrink-btn-row">
+          <button id="flashSingerBtn" class="btn btn-big flash-btn" title="Flash the singer's screen to get their attention">Flash</button>
+          <button id="nextSongBtn" class="btn btn-primary btn-big"><svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M5 5l8 7-8 7V5z"/><path d="M14 5l8 7-8 7V5z"/></svg> Next Song</button>
+        </div>
         <p id="upNextLabel" class="muted up-next">Queue is empty &mdash; add songs in Setup.</p>
       </section>
 
