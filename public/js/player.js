@@ -444,7 +444,6 @@
     }
   });
 
-  let bannerTimeout = null;
   socket.on('singer:reaction', ({ text, at }) => {
     if (reactionsFeed.dataset.empty === 'true') {
       reactionsFeed.innerHTML = '';
@@ -456,10 +455,18 @@
     reactionsFeed.prepend(li);
     while (reactionsFeed.children.length > 25) reactionsFeed.removeChild(reactionsFeed.lastChild);
 
-    reactionBanner.textContent = `Singer: ${text}`;
+    // Each reaction gets its own banner line with its own timer, so several
+    // sent in quick succession all stay visible instead of a newer one
+    // silently cutting an older one's display time short.
+    const item = document.createElement('div');
+    item.className = 'reaction-banner-item';
+    item.textContent = `Singer: ${text}`;
+    reactionBanner.appendChild(item);
     reactionBanner.classList.remove('hidden');
-    clearTimeout(bannerTimeout);
-    bannerTimeout = setTimeout(() => reactionBanner.classList.add('hidden'), 4000);
+    setTimeout(() => {
+      item.remove();
+      if (!reactionBanner.children.length) reactionBanner.classList.add('hidden');
+    }, 4000);
 
     sessionReactionLog.push({ text, at });
     persistSessionLog();

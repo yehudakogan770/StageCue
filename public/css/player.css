@@ -71,13 +71,20 @@
 }
 
 .reaction-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 0 0 auto;
+  max-height: 160px;
+  overflow-y: auto;
+}
+.reaction-banner-item {
   background: var(--success);
   color: #04150d;
   font-weight: 700;
   text-align: center;
   padding: 12px;
   font-size: 1.1rem;
-  flex: 0 0 auto;
 }
 
 /* ---------- Live screen: a fixed-height shell sized to the viewport, not
@@ -128,7 +135,9 @@
 }
 .line-controls.big button { flex: 1; }
 .up-next { margin-top: 2px; text-align: center; font-size: 12.5px; }
-#nextSongBtn { font-size: 1rem; min-height: 40px; }
+.shrink-btn-row { display: flex; gap: 8px; }
+.flash-btn { flex: 1; }
+#nextSongBtn { flex: 2; font-size: 1rem; min-height: 40px; }
 .queue-item.tappable { cursor: pointer; padding: 12px; }
 .queue-item.tappable:active { background: var(--panel-3); }
 
