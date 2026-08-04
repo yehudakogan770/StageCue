@@ -75,10 +75,12 @@
   const singerStatus = document.getElementById('singerStatus');
   const playerConnStatus = document.getElementById('playerConnStatus');
   const endSessionBtn = document.getElementById('endSessionBtn');
+  const flashSingerBtn = document.getElementById('flashSingerBtn');
 
   const nowShowing = document.getElementById('nowShowing');
   const nowShowingWrap = document.getElementById('nowShowingWrap');
   const lyricsHiddenNote = document.getElementById('lyricsHiddenNote');
+  const clearLyricsBtn = document.getElementById('clearLyricsBtn');
   const hideLyricsBtn = document.getElementById('hideLyricsBtn');
   const clearScreenBtn = document.getElementById('clearScreenBtn');
   const fontUpBtn = document.getElementById('fontUpBtn');
@@ -336,6 +338,17 @@
     updateLiveQueueFade();
   });
 
+  flashSingerBtn.addEventListener('click', () => {
+    socket.emit('player:flash');
+    flashSingerBtn.classList.add('btn-primary');
+    const original = flashSingerBtn.textContent;
+    flashSingerBtn.textContent = 'Sent!';
+    setTimeout(() => {
+      flashSingerBtn.classList.remove('btn-primary');
+      flashSingerBtn.textContent = original;
+    }, 600);
+  });
+
   startBtn.addEventListener('click', () => {
     startError.classList.add('hidden');
     socket.emit('player:create', customCodeInput.value.trim(), (ack) => {
@@ -559,6 +572,7 @@
     pushUpdate({ highlightLine: next });
   });
 
+  clearLyricsBtn.addEventListener('click', () => pushUpdate({ song: null, highlightLine: -1 }));
   clearMessageBtn.addEventListener('click', () => pushUpdate({ message: '' }));
   clearScreenBtn.addEventListener('click', () => {
     currentIndex = -1;

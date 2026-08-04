@@ -13,6 +13,7 @@
   const replyBar = document.getElementById('replyBar');
   const replyBarWrap = document.getElementById('replyBarWrap');
   const playerStatusBanner = document.getElementById('playerStatusBanner');
+  const flashOverlay = document.getElementById('flashOverlay');
   const singerFontUpBtn = document.getElementById('singerFontUpBtn');
   const singerFontDownBtn = document.getElementById('singerFontDownBtn');
 
@@ -294,6 +295,13 @@
 
   socket.on('player:disconnected', () => playerStatusBanner.classList.remove('hidden'));
   socket.on('player:reconnected', () => playerStatusBanner.classList.add('hidden'));
+
+  socket.on('singer:flash', () => {
+    flashOverlay.classList.remove('flashing');
+    void flashOverlay.offsetWidth; // restart the animation if triggered again quickly
+    flashOverlay.classList.add('flashing');
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+  });
 
   // Runs on first connect AND every automatic reconnect after a dropped
   // connection - rejoins the session we were already in instead of getting stuck.
