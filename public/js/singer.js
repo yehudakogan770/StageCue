@@ -369,6 +369,16 @@
         wrap.appendChild(artist);
       }
 
+      const metaParts = [];
+      if (state.song.key) metaParts.push(`Key: ${state.song.key}`);
+      if (state.song.bpm) metaParts.push(`${state.song.bpm} BPM`);
+      if (metaParts.length) {
+        const meta = document.createElement('div');
+        meta.className = 'song-meta';
+        meta.textContent = metaParts.join(' · ');
+        wrap.appendChild(meta);
+      }
+
       state.song.lines.forEach((line, idx) => {
         const div = document.createElement('div');
         div.className = 'lyric-line' + (idx === state.highlightLine ? ' active' : '');

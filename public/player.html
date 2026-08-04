@@ -232,6 +232,10 @@
               <input type="hidden" id="songId" />
               <label>Title<input id="songTitle" required /></label>
               <label>Artist<input id="songArtist" /></label>
+              <div class="song-meta-row">
+                <label>Key<input id="songKey" maxlength="12" placeholder="e.g. G, Bm" /></label>
+                <label>BPM<input id="songBpm" type="number" min="1" max="400" placeholder="e.g. 96" /></label>
+              </div>
               <label>Lyrics<textarea id="songLyrics" rows="6" placeholder="One line per line of lyrics"></textarea></label>
 
               <label>This song's own quick messages (in addition to your default presets)</label>

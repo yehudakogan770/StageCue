@@ -93,6 +93,7 @@
 }
 .display .song-title { font-family: var(--font-display); letter-spacing: 0.01em; line-height: 0.95; }
 .display .song-artist { color: var(--muted); }
+.display .song-meta { color: var(--muted); font-size: 0.5em; opacity: 0.85; }
 .display .lyrics-block {
   width: 100%;
   max-width: 800px;
