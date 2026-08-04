@@ -112,8 +112,10 @@
           </div>
         </div>
 
-        <div id="nowShowing" class="now-showing">
-          <p class="muted">No song selected.</p>
+        <div class="now-showing-wrap" id="nowShowingWrap">
+          <div id="nowShowing" class="now-showing">
+            <p class="muted">No song selected.</p>
+          </div>
         </div>
         <p id="lyricsHiddenNote" class="muted lyrics-hidden-note hidden">Lyrics hidden on this screen (the singer still sees them).</p>
 
@@ -161,7 +163,9 @@
         <div class="section-head">
           <span class="block-label">Playlist</span>
         </div>
-        <ol id="liveQueueList" class="queue-list live-queue-list"></ol>
+        <div class="live-queue-wrap" id="liveQueueWrap">
+          <ol id="liveQueueList" class="queue-list live-queue-list"></ol>
+        </div>
       </section>
 
       <div class="live-clear-row">
