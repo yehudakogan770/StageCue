@@ -590,6 +590,9 @@
         const li = document.createElement('li');
         li.className = 'queue-item' + (idx === currentIndex ? ' current' : '');
         li.innerHTML = `
+          <span class="drag-handle" title="Drag to reorder">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
+          </span>
           <div class="info"><strong>${idx + 1}. ${escapeHtml(song.title)}</strong><span>${escapeHtml(song.artist || '')}</span></div>
           <div class="actions">
             <button class="btn btn-small" data-act="up">&uarr;</button>
@@ -601,6 +604,7 @@
         li.querySelector('[data-act="down"]').addEventListener('click', () => moveQueueItem(idx, 1));
         li.querySelector('[data-act="send"]').addEventListener('click', () => sendSongToSinger(idx));
         li.querySelector('[data-act="remove"]').addEventListener('click', () => removeFromQueue(idx));
+        li.querySelector('.drag-handle').addEventListener('pointerdown', (e) => startQueueDrag(e, idx));
         queueList.appendChild(li);
       });
     }
@@ -666,6 +670,69 @@
     if (currentIndex === idx) currentIndex = target;
     else if (currentIndex === target) currentIndex = idx;
     persistQueue();
+    renderQueue();
+  }
+
+  // Drag-to-reorder for the setup-screen queue, via Pointer Events so it
+  // works the same with mouse, touch, or pen. The dragged row tracks the
+  // pointer directly (no easing); siblings between its old and new spot
+  // slide over by one row height to open a gap, purely as a CSS transform -
+  // the actual `queue` array only gets reordered once on pointerup.
+  let queueDrag = null;
+
+  function startQueueDrag(e, idx) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
+    const items = Array.from(queueList.querySelectorAll('.queue-item'));
+    if (items.length < 2) return;
+    const rects = items.map((el) => el.getBoundingClientRect());
+    const step = rects[1].top - rects[0].top;
+
+    queueDrag = { idx, targetIdx: idx, startY: e.clientY, items, step };
+    items[idx].classList.add('dragging');
+    items[idx].setPointerCapture(e.pointerId);
+    items[idx].addEventListener('pointermove', onQueueDragMove);
+    items[idx].addEventListener('pointerup', endQueueDrag);
+    items[idx].addEventListener('pointercancel', endQueueDrag);
+  }
+
+  function onQueueDragMove(e) {
+    if (!queueDrag) return;
+    const dy = e.clientY - queueDrag.startY;
+    queueDrag.items[queueDrag.idx].style.transform = `translateY(${dy}px)`;
+
+    let newTarget = queueDrag.idx + Math.round(dy / queueDrag.step);
+    newTarget = Math.max(0, Math.min(queueDrag.items.length - 1, newTarget));
+    if (newTarget === queueDrag.targetIdx) return;
+
+    queueDrag.items.forEach((el, i) => {
+      if (i === queueDrag.idx) return;
+      let shift = 0;
+      if (i > queueDrag.idx && i <= newTarget) shift = -1;
+      else if (i < queueDrag.idx && i >= newTarget) shift = 1;
+      el.style.transform = shift ? `translateY(${shift * queueDrag.step}px)` : '';
+    });
+    queueDrag.targetIdx = newTarget;
+  }
+
+  function endQueueDrag(e) {
+    if (!queueDrag) return;
+    const { idx, targetIdx, items } = queueDrag;
+    items[idx].removeEventListener('pointermove', onQueueDragMove);
+    items[idx].removeEventListener('pointerup', endQueueDrag);
+    items[idx].removeEventListener('pointercancel', endQueueDrag);
+    if (e && items[idx].hasPointerCapture(e.pointerId)) items[idx].releasePointerCapture(e.pointerId);
+    items.forEach((el) => { el.style.transform = ''; el.classList.remove('dragging'); });
+    queueDrag = null;
+
+    if (targetIdx !== idx) {
+      const [moved] = queue.splice(idx, 1);
+      queue.splice(targetIdx, 0, moved);
+      if (currentIndex === idx) currentIndex = targetIdx;
+      else if (idx < currentIndex && targetIdx >= currentIndex) currentIndex -= 1;
+      else if (idx > currentIndex && targetIdx <= currentIndex) currentIndex += 1;
+      persistQueue();
+    }
     renderQueue();
   }
 
