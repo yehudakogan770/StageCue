@@ -106,6 +106,7 @@
   const playlistLoadSelect = document.getElementById('playlistLoadSelect');
   const loadPlaylistBtn = document.getElementById('loadPlaylistBtn');
   const saveQueueBtn = document.getElementById('saveQueueBtn');
+  const printSetlistBtn = document.getElementById('printSetlistBtn');
   const clearQueueBtn = document.getElementById('clearQueueBtn');
   const queueList = document.getElementById('queueList');
 
@@ -824,6 +825,47 @@
     playlists.push(created);
     renderPlaylistOptions();
     renderPlaylistLibraryList();
+  });
+
+  // Opens a clean, light, print-friendly page in a new tab - a paper (or
+  // PDF, via the browser's own print dialog) backup of the set order in
+  // case a phone or the wifi dies mid-show. Built entirely client-side
+  // since the queue/song data is already loaded - no server round-trip.
+  printSetlistBtn.addEventListener('click', () => {
+    if (queue.length === 0) return alert('Queue is empty — add songs first.');
+
+    const rows = queue.map((id, idx) => {
+      const song = findSong(id);
+      if (!song) return '';
+      return `<li><span class="num">${idx + 1}.</span> <span class="title">${escapeHtml(song.title)}</span>${song.artist ? ` <span class="artist">&mdash; ${escapeHtml(song.artist)}</span>` : ''}</li>`;
+    }).join('');
+
+    const win = window.open('', '_blank');
+    if (!win) return alert('Please allow pop-ups to print the setlist.');
+
+    win.document.write(`<!doctype html>
+<html><head><meta charset="UTF-8" /><title>Setlist - ${escapeHtml(currentEventName || 'StageCue')}</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #111; background: #fff; max-width: 640px; margin: 40px auto; padding: 0 20px; }
+  h1 { font-size: 22px; margin: 0 0 2px; }
+  .meta { color: #666; font-size: 13px; margin: 0 0 24px; }
+  ol.setlist { list-style: none; margin: 0; padding: 0; }
+  ol.setlist li { font-size: 18px; padding: 10px 0; border-bottom: 1px solid #ddd; }
+  .num { color: #888; font-weight: 600; margin-right: 4px; }
+  .title { font-weight: 700; }
+  .artist { color: #666; }
+  .no-print { margin: 24px 0 0; }
+  .no-print button { font-size: 14px; padding: 8px 16px; cursor: pointer; }
+  @media print { .no-print { display: none; } }
+</style>
+</head>
+<body>
+  <h1>${escapeHtml(currentEventName || 'Setlist')}</h1>
+  <p class="meta">Setlist &middot; ${new Date().toLocaleString()}</p>
+  <ol class="setlist">${rows}</ol>
+  <div class="no-print"><button onclick="window.print()">Print / Save as PDF</button></div>
+</body></html>`);
+    win.document.close();
   });
 
   // ---------- Library: songs ----------
