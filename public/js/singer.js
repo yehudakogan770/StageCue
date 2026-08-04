@@ -303,11 +303,26 @@
     if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
   });
 
+  // A code in the URL (from a scanned QR code) takes priority over any
+  // saved session - it's a deliberate fresh join. Read once and strip it
+  // from the URL so a later page refresh falls back to the normal
+  // saved-session resume instead of re-trying a possibly stale code.
+  const urlCode = new URLSearchParams(location.search).get('code');
+  if (urlCode) history.replaceState(null, '', location.pathname);
+
   // Runs on first connect AND every automatic reconnect after a dropped
   // connection - rejoins the session we were already in instead of getting stuck.
   socket.on('connect', () => {
     const dot = document.querySelector('#connStatus .status-dot');
     if (dot) dot.classList.add('online');
+
+    if (urlCode && liveScreen.classList.contains('hidden')) {
+      joinWithCode(urlCode.toUpperCase(), (error) => {
+        joinError.textContent = error || 'Could not connect.';
+        joinError.classList.remove('hidden');
+      });
+      return;
+    }
 
     const saved = localStorage.getItem(SESSION_KEY);
     if (saved && liveScreen.classList.contains('hidden')) {

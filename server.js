@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const QRCode = require('qrcode');
 const store = require('./lib/store');
 const { hashPassword, verifyPassword, parseCookies } = require('./lib/auth');
 
@@ -25,6 +26,20 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/player', (req, res) => res.sendFile(path.join(__dirname, 'public', 'player.html')));
 app.get('/singer', (req, res) => res.sendFile(path.join(__dirname, 'public', 'singer.html')));
 app.get('/reset-password', (req, res) => res.sendFile(path.join(__dirname, 'public', 'reset-password.html')));
+
+// Generates a QR code for a given URL entirely locally (no third-party
+// image service involved) - used so a singer can scan their way straight
+// into a session instead of typing a code.
+app.get('/api/qr', async (req, res) => {
+  const text = String(req.query.text || '').slice(0, 300);
+  if (!text) return res.status(400).json({ error: 'text is required.' });
+  try {
+    const svg = await QRCode.toString(text, { type: 'svg', margin: 1, width: 240 });
+    res.type('image/svg+xml').send(svg);
+  } catch (err) {
+    res.status(500).json({ error: 'Could not generate QR code.' });
+  }
+});
 
 // ---------- Accounts ----------
 // Keyboard players must have an account, so their songs/playlists/presets are

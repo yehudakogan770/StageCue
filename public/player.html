@@ -107,7 +107,7 @@
                on a phone without losing anything critical. -->
           <span id="singerStatus" class="status-pill"><span class="status-dot"></span> Singer not connected</span>
           <span id="playerConnStatus" class="status-pill hidden"><span class="status-dot online"></span> Connected</span>
-          <span class="code-pill">Code: <strong id="codeDisplay">-----</strong></span>
+          <button type="button" class="code-pill code-pill-btn" id="showQrBtn" title="Show QR code for the singer to scan">Code: <strong id="codeDisplay">-----</strong></button>
           <span class="code-pill" id="eventNamePill">Event</span>
         </div>
       </div>
@@ -116,6 +116,17 @@
         <button id="endSessionBtn" class="btn btn-danger btn-small">End</button>
       </div>
     </header>
+
+    <!-- QR modal: scanning it takes the singer straight into the session
+         (via a ?code= URL param), skipping typing the code by hand. -->
+    <div id="qrModal" class="qr-modal hidden">
+      <div class="qr-modal-card">
+        <h3>Scan to Join</h3>
+        <div id="qrImageWrap" class="qr-image-wrap"></div>
+        <p class="muted small-note">Or enter code <strong id="qrCodeText">-----</strong> manually on the Singer join screen</p>
+        <button type="button" id="closeQrBtn" class="btn btn-small btn-full">Close</button>
+      </div>
+    </div>
 
     <div id="reactionBanner" class="reaction-banner hidden"></div>
 
