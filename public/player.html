@@ -4,9 +4,6 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>StageCue - Keyboard Player</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/css/style.css" />
 <link rel="stylesheet" href="/css/player.css" />
 </head>
@@ -143,7 +140,7 @@
             <div id="presetGrid" class="preset-grid"></div>
           </div>
         </div>
-        <button id="toggleMessageBtn" class="btn btn-small btn-full">&#9998; Custom Message</button>
+        <button id="toggleMessageBtn" class="btn btn-small btn-full">Custom Message</button>
         <div id="messageBox" class="message-row hidden">
           <input id="messageInput" type="text" placeholder="Type a message for the singer..." maxlength="200" />
           <button id="sendMessageBtn" class="btn btn-primary">Send</button>
@@ -153,7 +150,7 @@
       <hr class="live-divider" />
 
       <section class="live-block live-block-shrink">
-        <button id="nextSongBtn" class="btn btn-primary btn-big btn-full">&#9654;&#9654; Next Song</button>
+        <button id="nextSongBtn" class="btn btn-primary btn-big btn-full"><svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M5 5l8 7-8 7V5z"/><path d="M14 5l8 7-8 7V5z"/></svg> Next Song</button>
         <p id="upNextLabel" class="muted up-next">Queue is empty &mdash; add songs in Setup.</p>
       </section>
 
