@@ -152,6 +152,27 @@ deployment (in Render: your service → **Environment**):
 If those variables aren't set, the Google button simply stays hidden and
 username/password keeps working as normal — nothing else is affected.
 
+### Optional: enabling "Forgot password?"
+
+Accounts only have a username, not an email, by default - so there's no way
+to recover a forgotten password unless one is added. Registering (or adding
+one later from the account settings) with a recovery email, plus two
+environment variables, turns on email-based password reset:
+
+1. Sign up for a free [SendGrid](https://sendgrid.com) account (100
+   emails/day free, forever).
+2. Go to **Settings → Sender Authentication → Single Sender Verification**
+   and verify one email address you own (e.g. your own Gmail) - this is
+   just a one-time email confirmation, no domain or DNS setup needed.
+3. Create an API key under **Settings → API Keys** (full access, or
+   restricted to "Mail Send").
+4. In Render, add environment variables `SENDGRID_API_KEY` (the key from
+   step 3) and `EMAIL_FROM` (the exact address you verified in step 2), then
+   redeploy.
+
+If those variables aren't set, "Forgot password?" simply stays hidden, same
+as the Google button above.
+
 ## Notes
 
 - The live session (which singer is paired with which player, and what's
