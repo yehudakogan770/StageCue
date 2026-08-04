@@ -91,7 +91,8 @@ other devices can connect using your computer's local IP address instead of
   the session — it reconnects automatically and picks up right where it
   left off.
 - **Saved data**: accounts, events, songs, playlists, and presets are stored
-  in `data/db.json` on the server.
+  in `data/db.json` on the server, or in Postgres if `DATABASE_URL` is set
+  (see below).
 
 ## Deploying it online (so it works from anywhere)
 
@@ -108,10 +109,30 @@ This repo includes a `render.yaml`, so it can be deployed on
 
 Note: on Render's free plan, the server's disk resets on every redeploy or
 restart, so everything in `data/db.json` — **including registered
-accounts** — can be lost when that happens. That's fine while testing; if
-you want accounts and data to survive long-term, that storage should be
-moved to a small persistent database (e.g. Render's free PostgreSQL tier)
-before relying on it for a real event.
+accounts** — can be lost when that happens. That's fine while testing, but
+before relying on this for a real event, set up persistent storage (below).
+
+### Recommended: persistent storage with Postgres
+
+Without any setup, StageCue stores its data in a file that gets wiped on
+every redeploy/restart (see the note above). To make accounts and data
+permanent, point it at a free Postgres database instead:
+
+1. Create a free Postgres database — [Neon](https://neon.tech) and
+   [Supabase](https://supabase.com) both have a free tier that works well
+   for this. Copy the connection string it gives you (it looks like
+   `postgres://user:password@host/dbname`).
+2. In Render: your service → **Environment** → add an environment variable
+   named `DATABASE_URL` with that connection string, then redeploy.
+
+That's it — the server automatically creates the table it needs on first
+boot. If `DATABASE_URL` isn't set, it falls back to the `data/db.json` file
+exactly as before, so local development needs no extra setup.
+
+**Heads up:** switching this on starts a fresh, empty database — it does
+not import whatever is currently in the live `data/db.json` file on Render.
+If there are accounts on the live site you want to keep, let me know before
+you flip this on and I can help pull that data over first.
 
 ### Optional: enabling "Continue with Google"
 

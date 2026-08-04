@@ -58,7 +58,7 @@ function publicUser(user) {
   return { username: user.username, role: user.role };
 }
 
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   const username = String(req.body.username || '').trim();
   const password = String(req.body.password || '');
   const role = req.body.role === 'singer' ? 'singer' : 'player';
@@ -66,7 +66,7 @@ app.post('/api/auth/register', (req, res) => {
   if (username.length < 2) return res.status(400).json({ error: 'Username must be at least 2 characters.' });
   if (password.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters.' });
 
-  const db = store.load();
+  const db = await store.load();
   db.users = db.users || [];
   if (db.users.some((u) => u.username.toLowerCase() === username.toLowerCase())) {
     return res.status(409).json({ error: 'That username is already taken.' });
@@ -75,16 +75,16 @@ app.post('/api/auth/register', (req, res) => {
   const user = { id: store.newId('user'), username, passwordHash: hashPassword(password), role };
   if (role === 'singer') user.replies = [];
   db.users.push(user);
-  store.save(db);
+  await store.save(db);
 
   startWebSession(res, user);
   res.status(201).json({ ok: true, user: publicUser(user) });
 });
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const username = String(req.body.username || '').trim();
   const password = String(req.body.password || '');
-  const db = store.load();
+  const db = await store.load();
   const user = (db.users || []).find((u) => u.username.toLowerCase() === username.toLowerCase());
   if (!user || !verifyPassword(password, user.passwordHash)) {
     return res.status(401).json({ error: 'Incorrect username or password.' });
@@ -170,14 +170,14 @@ if (GOOGLE_ENABLED) {
       if (!profile.email) throw new Error('Google did not return an email address');
 
       const desiredRole = role === 'singer' ? 'singer' : 'player';
-      const db = store.load();
+      const db = await store.load();
       db.users = db.users || [];
       let user = db.users.find((u) => u.username.toLowerCase() === profile.email.toLowerCase());
       if (!user) {
         user = { id: store.newId('user'), username: profile.email, passwordHash: null, role: desiredRole, authProvider: 'google' };
         if (desiredRole === 'singer') user.replies = [];
         db.users.push(user);
-        store.save(db);
+        await store.save(db);
       }
 
       startWebSession(res, user);
@@ -191,29 +191,29 @@ if (GOOGLE_ENABLED) {
 
 // ---------- Singer's optional saved quick replies ----------
 
-app.get('/api/singer/replies', requireRole('singer'), (req, res) => {
-  const db = store.load();
+app.get('/api/singer/replies', requireRole('singer'), async (req, res) => {
+  const db = await store.load();
   const user = db.users.find((u) => u.id === req.user.id);
   res.json((user && user.replies) || []);
 });
 
-app.post('/api/singer/replies', requireRole('singer'), (req, res) => {
+app.post('/api/singer/replies', requireRole('singer'), async (req, res) => {
   const text = String(req.body.text || '').trim().slice(0, 40);
   if (!text) return res.status(400).json({ error: 'Reply text is required.' });
-  const db = store.load();
+  const db = await store.load();
   const user = db.users.find((u) => u.id === req.user.id);
   const reply = { id: store.newId('reply'), text };
   user.replies = user.replies || [];
   user.replies.push(reply);
-  store.save(db);
+  await store.save(db);
   res.status(201).json(reply);
 });
 
-app.delete('/api/singer/replies/:id', requireRole('singer'), (req, res) => {
-  const db = store.load();
+app.delete('/api/singer/replies/:id', requireRole('singer'), async (req, res) => {
+  const db = await store.load();
   const user = db.users.find((u) => u.id === req.user.id);
   user.replies = (user.replies || []).filter((r) => r.id !== req.params.id);
-  store.save(db);
+  await store.save(db);
   res.json({ ok: true });
 });
 
@@ -222,25 +222,25 @@ app.delete('/api/singer/replies/:id', requireRole('singer'), (req, res) => {
 // separate songs, playlists, and presets - switching events switches your
 // whole library, not just the live queue.
 
-app.get('/api/events', requireRole('player'), (req, res) => {
-  const db = store.load();
+app.get('/api/events', requireRole('player'), async (req, res) => {
+  const db = await store.load();
   db.events = db.events || [];
   res.json(db.events.filter((e) => e.ownerId === req.user.id));
 });
 
-app.post('/api/events', requireRole('player'), (req, res) => {
+app.post('/api/events', requireRole('player'), async (req, res) => {
   const name = String(req.body.name || '').trim();
   if (!name) return res.status(400).json({ error: 'Event name is required.' });
-  const db = store.load();
+  const db = await store.load();
   db.events = db.events || [];
   const event = { id: store.newId('event'), name, ownerId: req.user.id, createdAt: Date.now() };
   db.events.push(event);
-  store.save(db);
+  await store.save(db);
   res.status(201).json(event);
 });
 
-app.delete('/api/events/:id', requireRole('player'), (req, res) => {
-  const db = store.load();
+app.delete('/api/events/:id', requireRole('player'), async (req, res) => {
+  const db = await store.load();
   db.events = db.events || [];
   const idx = db.events.findIndex((e) => e.id === req.params.id && e.ownerId === req.user.id);
   if (idx === -1) return res.status(404).json({ error: 'Not found' });
@@ -249,7 +249,7 @@ app.delete('/api/events/:id', requireRole('player'), (req, res) => {
   ['songs', 'playlists', 'presets'].forEach((resource) => {
     db[resource] = db[resource].filter((x) => x.eventId !== removed.id);
   });
-  store.save(db);
+  await store.save(db);
   res.json(removed);
 });
 
@@ -259,38 +259,38 @@ function crudRoutes(resource) {
   const base = `/api/${resource}`;
   const auth = requireRole('player');
 
-  app.get(base, auth, (req, res) => {
+  app.get(base, auth, async (req, res) => {
     const eventId = String(req.query.eventId || '');
-    const db = store.load();
+    const db = await store.load();
     res.json(db[resource].filter((x) => x.ownerId === req.user.id && x.eventId === eventId));
   });
 
-  app.post(base, auth, (req, res) => {
+  app.post(base, auth, async (req, res) => {
     const eventId = String(req.body.eventId || '');
     if (!eventId) return res.status(400).json({ error: 'eventId is required.' });
-    const db = store.load();
+    const db = await store.load();
     const item = { ...req.body, id: store.newId(resource.slice(0, -1)), ownerId: req.user.id, eventId };
     db[resource].push(item);
-    store.save(db);
+    await store.save(db);
     res.status(201).json(item);
   });
 
-  app.put(`${base}/:id`, auth, (req, res) => {
-    const db = store.load();
+  app.put(`${base}/:id`, auth, async (req, res) => {
+    const db = await store.load();
     const idx = db[resource].findIndex((x) => x.id === req.params.id && x.ownerId === req.user.id);
     if (idx === -1) return res.status(404).json({ error: 'Not found' });
     // eventId is fixed at creation time - editing never moves an item to another event.
     db[resource][idx] = { ...db[resource][idx], ...req.body, id: req.params.id, ownerId: req.user.id, eventId: db[resource][idx].eventId };
-    store.save(db);
+    await store.save(db);
     res.json(db[resource][idx]);
   });
 
-  app.delete(`${base}/:id`, auth, (req, res) => {
-    const db = store.load();
+  app.delete(`${base}/:id`, auth, async (req, res) => {
+    const db = await store.load();
     const idx = db[resource].findIndex((x) => x.id === req.params.id && x.ownerId === req.user.id);
     if (idx === -1) return res.status(404).json({ error: 'Not found' });
     const [removed] = db[resource].splice(idx, 1);
-    store.save(db);
+    await store.save(db);
     res.json(removed);
   });
 }
