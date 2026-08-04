@@ -31,6 +31,14 @@
 
   function findSong(id) { return songs.find((s) => s.id === id); }
 
+  function songMetaLine(song) {
+    const parts = [];
+    if (song.artist) parts.push(song.artist);
+    if (song.key) parts.push(`Key: ${song.key}`);
+    if (song.bpm) parts.push(`${song.bpm} BPM`);
+    return parts.join(' · ');
+  }
+
   // ---------- Undo toast ----------
   // Deletes are soft on the server (a restore endpoint just clears
   // deletedAt), so this is a real undo, not a "recreate a lookalike" hack.
@@ -591,6 +599,16 @@
       nowShowing.appendChild(artist);
     }
 
+    const metaParts = [];
+    if (liveState.song.key) metaParts.push(`Key: ${liveState.song.key}`);
+    if (liveState.song.bpm) metaParts.push(`${liveState.song.bpm} BPM`);
+    if (metaParts.length) {
+      const meta = document.createElement('div');
+      meta.className = 'song-meta';
+      meta.textContent = metaParts.join(' · ');
+      nowShowing.appendChild(meta);
+    }
+
     liveState.song.lines.forEach((line, idx) => {
       const div = document.createElement('div');
       div.className = 'lyric-line' + (idx === liveState.highlightLine ? ' active' : '');
@@ -906,7 +924,7 @@
     currentIndex = idx;
     persistQueue();
     renderQueue();
-    pushUpdate({ song: { title: song.title, artist: song.artist, lines: (song.lyrics || '').split('\n'), presets: song.presets || [] }, highlightLine: -1 });
+    pushUpdate({ song: { title: song.title, artist: song.artist, key: song.key, bpm: song.bpm, lines: (song.lyrics || '').split('\n'), presets: song.presets || [] }, highlightLine: -1 });
     sessionSongLog.push({ title: song.title, artist: song.artist || '', at: Date.now() });
     persistSessionLog();
   }
@@ -992,6 +1010,8 @@
   const songIdField = document.getElementById('songId');
   const songTitle = document.getElementById('songTitle');
   const songArtist = document.getElementById('songArtist');
+  const songKey = document.getElementById('songKey');
+  const songBpm = document.getElementById('songBpm');
   const songLyrics = document.getElementById('songLyrics');
   const songCancelBtn = document.getElementById('songCancelBtn');
   const songLibraryList = document.getElementById('songLibraryList');
@@ -1042,7 +1062,7 @@
 
   songForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const payload = { title: songTitle.value.trim(), artist: songArtist.value.trim(), lyrics: songLyrics.value, presets: songPresetDraft, eventId: currentEventId };
+    const payload = { title: songTitle.value.trim(), artist: songArtist.value.trim(), key: songKey.value.trim(), bpm: songBpm.value.trim(), lyrics: songLyrics.value, presets: songPresetDraft, eventId: currentEventId };
     if (songIdField.value) {
       const updated = await apiPut(`/api/songs/${songIdField.value}`, payload);
       const idx = songs.findIndex((s) => s.id === updated.id);
@@ -1084,7 +1104,7 @@
       const li = document.createElement('li');
       li.className = 'entity-item';
       li.innerHTML = `
-        <div class="info"><strong>${escapeHtml(song.title)}</strong><span>${escapeHtml(song.artist || '')}</span></div>
+        <div class="info"><strong>${escapeHtml(song.title)}</strong><span>${escapeHtml(songMetaLine(song))}</span></div>
         <div class="actions">
           <button class="btn btn-small" data-act="add">Queue</button>
           <button class="btn btn-small" data-act="edit">Edit</button>
@@ -1095,6 +1115,8 @@
         songIdField.value = song.id;
         songTitle.value = song.title;
         songArtist.value = song.artist || '';
+        songKey.value = song.key || '';
+        songBpm.value = song.bpm || '';
         songLyrics.value = song.lyrics || '';
         songPresetDraft = (song.presets || []).slice();
         renderSongPresetDraftList();

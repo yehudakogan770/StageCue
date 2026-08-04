@@ -195,6 +195,9 @@ label {
 .song-preset-add-row { display: flex; gap: 6px; }
 .song-preset-add-row input { flex: 1; min-width: 0; }
 
+.song-meta-row { display: flex; gap: 8px; }
+.song-meta-row label { flex: 1; }
+
 .stacked-form { display: flex; flex-direction: column; gap: 10px; }
 .stacked-form label { margin-bottom: 0; }
 
