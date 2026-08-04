@@ -68,6 +68,7 @@
   const endSessionBtn = document.getElementById('endSessionBtn');
 
   const nowShowing = document.getElementById('nowShowing');
+  const nowShowingWrap = document.getElementById('nowShowingWrap');
   const lyricsHiddenNote = document.getElementById('lyricsHiddenNote');
   const hideLyricsBtn = document.getElementById('hideLyricsBtn');
   const clearScreenBtn = document.getElementById('clearScreenBtn');
@@ -91,6 +92,7 @@
   const nextSongBtn = document.getElementById('nextSongBtn');
   const upNextLabel = document.getElementById('upNextLabel');
   const liveQueueList = document.getElementById('liveQueueList');
+  const liveQueueWrap = document.getElementById('liveQueueWrap');
 
   const playlistLoadSelect = document.getElementById('playlistLoadSelect');
   const loadPlaylistBtn = document.getElementById('loadPlaylistBtn');
@@ -258,7 +260,11 @@
     sessionInfoWrap.classList.toggle('at-end', atEnd);
   }
   sessionInfo.addEventListener('scroll', updateSessionInfoFade);
-  window.addEventListener('resize', updateSessionInfoFade);
+  window.addEventListener('resize', () => {
+    updateSessionInfoFade();
+    updateNowShowingFade();
+    updateLiveQueueFade();
+  });
 
   startBtn.addEventListener('click', () => {
     startError.classList.add('hidden');
@@ -402,6 +408,7 @@
       nowShowing.innerHTML = '';
       nowShowing.classList.add('hidden');
       lyricsHiddenNote.classList.remove('hidden');
+      updateNowShowingFade();
       return;
     }
     nowShowing.classList.remove('hidden');
@@ -411,6 +418,7 @@
 
     if (!liveState.song) {
       nowShowing.innerHTML = '<p class="muted">No song selected.</p>';
+      updateNowShowingFade();
       return;
     }
 
@@ -433,7 +441,17 @@
       div.addEventListener('click', () => pushUpdate({ highlightLine: idx }));
       nowShowing.appendChild(div);
     });
+    updateNowShowingFade();
   }
+
+  // Shows a fade at the bottom of the lyrics box whenever it's scrolled
+  // somewhere other than the end, hinting that more lines exist below
+  // instead of hard-clipping the last visible line.
+  function updateNowShowingFade() {
+    const atEnd = nowShowing.scrollTop + nowShowing.clientHeight >= nowShowing.scrollHeight - 2;
+    nowShowingWrap.classList.toggle('at-end', atEnd);
+  }
+  nowShowing.addEventListener('scroll', updateNowShowingFade);
 
   function renderCurrentMessage() {
     if (liveState.message) {
@@ -477,6 +495,7 @@
     });
     nowShowing.classList.add('text-scale-' + playerFontScale);
     currentMessage.classList.add('text-scale-' + playerFontScale);
+    updateNowShowingFade();
   }
   applyPlayerFontScale();
 
@@ -593,6 +612,7 @@
     liveQueueList.innerHTML = '';
     if (queue.length === 0) {
       liveQueueList.innerHTML = '<li class="muted">Queue is empty. Add songs in Setup.</li>';
+      updateLiveQueueFade();
       return;
     }
     queue.forEach((songId, idx) => {
@@ -604,7 +624,17 @@
       li.addEventListener('click', () => sendSongToSinger(idx));
       liveQueueList.appendChild(li);
     });
+    updateLiveQueueFade();
   }
+
+  // Shows a fade at the bottom of the playlist whenever it's scrolled
+  // somewhere other than the end, hinting that more songs exist below
+  // instead of hard-clipping the last visible item.
+  function updateLiveQueueFade() {
+    const atEnd = liveQueueList.scrollTop + liveQueueList.clientHeight >= liveQueueList.scrollHeight - 2;
+    liveQueueWrap.classList.toggle('at-end', atEnd);
+  }
+  liveQueueList.addEventListener('scroll', updateLiveQueueFade);
 
   function renderUpNext() {
     const nextIdx = currentIndex + 1;

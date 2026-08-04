@@ -1,5 +1,6 @@
 .join-screen {
-  min-height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -36,7 +37,7 @@
   align-items: center;
   padding: 10px 16px;
   border-bottom: 1px solid var(--border);
-  background: rgba(28, 25, 23, 0.9);
+  background: rgba(30, 32, 36, 0.9);
   backdrop-filter: blur(10px);
 }
 .top-strip-actions { display: flex; gap: 8px; }
@@ -62,6 +63,7 @@
   border-left: 3px solid var(--accent);
   border-radius: var(--radius);
   padding: 18px 26px;
+  box-shadow: var(--shadow-sm);
 }
 .display .message-text {
   font-weight: 700;
@@ -69,7 +71,7 @@
   margin: 0;
 }
 .display .song-title { font-family: var(--font-display); letter-spacing: 0.01em; line-height: 0.95; }
-.display .song-artist { color: var(--muted); font-family: var(--font-mono); }
+.display .song-artist { color: var(--muted); }
 .display .lyrics-block {
   width: 100%;
   max-width: 800px;
@@ -77,6 +79,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 18px 26px;
+  box-shadow: var(--shadow-sm);
 }
 .display .lyric-line {
   padding: 6px 0;
@@ -107,9 +110,9 @@
 
 .player-status-banner {
   flex: 0 0 auto;
-  background: rgba(232, 149, 47, 0.14);
-  color: var(--accent-hover);
-  border-bottom: 1px solid var(--accent);
+  background: rgba(245, 166, 35, 0.14);
+  color: #f5a623;
+  border-bottom: 1px solid #f5a623;
   text-align: center;
   font-weight: 600;
   padding: 8px 12px;
