@@ -159,6 +159,17 @@
   const liveScreen = document.getElementById('liveScreen');
   const manageScreen = document.getElementById('manageScreen');
   const manageToggleBtn = document.getElementById('manageToggleBtn');
+  const setupLayout = document.getElementById('setupLayout');
+
+  // Phone-only Library/Queue toggle within the setup screen - see the
+  // .setup-layout-queue rules in player.css for why this exists (avoids
+  // the whole setup screen needing to scroll as one long stacked page).
+  document.querySelectorAll('.panel-toggle-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.panel-toggle-btn').forEach((b) => b.classList.toggle('active', b === btn));
+      setupLayout.classList.toggle('setup-layout-queue', btn.dataset.panel === 'queue');
+    });
+  });
 
   // ---------- Screens ----------
   const ALL_SCREENS = [authScreen, eventsScreen, startScreen, mainScreen];
@@ -523,7 +534,7 @@
     const item = document.createElement('div');
     item.className = 'reaction-banner-item';
     item.textContent = `Singer: ${text}`;
-    reactionBanner.appendChild(item);
+    reactionBanner.prepend(item);
     reactionBanner.classList.remove('hidden');
     setTimeout(() => {
       item.remove();
@@ -1007,6 +1018,9 @@
 
   // ---------- Library: songs ----------
   const songForm = document.getElementById('songForm');
+  const songLibraryTab = document.getElementById('tab-library');
+  const toggleSongFormBtn = document.getElementById('toggleSongFormBtn');
+  toggleSongFormBtn.addEventListener('click', () => songLibraryTab.classList.toggle('song-form-open'));
   const songIdField = document.getElementById('songId');
   const songTitle = document.getElementById('songTitle');
   const songArtist = document.getElementById('songArtist');
@@ -1082,6 +1096,7 @@
   function resetSongForm() {
     songIdField.value = '';
     songForm.reset();
+    songLibraryTab.classList.remove('song-form-open');
     songCancelBtn.classList.add('hidden');
     songPresetDraft = [];
     renderSongPresetDraftList();
@@ -1121,6 +1136,7 @@
         songPresetDraft = (song.presets || []).slice();
         renderSongPresetDraftList();
         songCancelBtn.classList.remove('hidden');
+        songLibraryTab.classList.add('song-form-open');
         selectTab('library');
       });
       li.querySelector('[data-act="del"]').addEventListener('click', async () => {

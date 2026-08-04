@@ -214,7 +214,15 @@
 
     <!-- ============ SETUP SCREEN: default view - songs, playlists, presets, queue ============ -->
     <div id="manageScreen">
-      <div class="layout">
+      <div class="layout" id="setupLayout">
+        <!-- Phone-only: Library and Queue become two full-height views you
+             switch between, instead of stacking (which is what forced the
+             whole setup screen to scroll as one long page). Desktop/tablet
+             ignore this and show both side by side, as always. -->
+        <div class="mobile-panel-toggle">
+          <button type="button" class="btn panel-toggle-btn active" data-panel="library">Library</button>
+          <button type="button" class="btn panel-toggle-btn" data-panel="queue">Queue</button>
+        </div>
         <!-- Tabs come first in the markup so they appear ABOVE the queue on a
              phone (narrow screens stack this grid into one column, in source
              order) instead of being buried below several other cards. -->
@@ -228,6 +236,12 @@
 
           <div id="tab-library" class="tab-panel card active">
             <h3>Add Song</h3>
+            <!-- Phone only: this form is long enough to crowd out the song
+                 list below it, so it collapses behind this button by
+                 default - most of the time you're browsing/queueing
+                 existing songs, not adding a new one. Desktop/tablet never
+                 show this button and keep the form always open. -->
+            <button type="button" id="toggleSongFormBtn" class="btn btn-small btn-full song-form-toggle">Add Song</button>
             <form id="songForm" class="stacked-form">
               <input type="hidden" id="songId" />
               <label>Title<input id="songTitle" required /></label>
