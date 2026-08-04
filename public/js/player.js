@@ -729,6 +729,12 @@
   const songLyrics = document.getElementById('songLyrics');
   const songCancelBtn = document.getElementById('songCancelBtn');
   const songLibraryList = document.getElementById('songLibraryList');
+  const songSearchInput = document.getElementById('songSearchInput');
+  let songSearchQuery = '';
+  songSearchInput.addEventListener('input', () => {
+    songSearchQuery = songSearchInput.value.trim().toLowerCase();
+    renderSongLibraryList();
+  });
   const songPresetDraftList = document.getElementById('songPresetDraftList');
   const songPresetLabelInput = document.getElementById('songPresetLabelInput');
   const songPresetMessageInput = document.getElementById('songPresetMessageInput');
@@ -801,7 +807,14 @@
       songLibraryList.innerHTML = '<li class="muted">No songs yet.</li>';
       return;
     }
-    songs.forEach((song) => {
+    const filtered = songSearchQuery
+      ? songs.filter((s) => s.title.toLowerCase().includes(songSearchQuery) || (s.artist || '').toLowerCase().includes(songSearchQuery))
+      : songs;
+    if (filtered.length === 0) {
+      songLibraryList.innerHTML = '<li class="muted">No songs match your search.</li>';
+      return;
+    }
+    filtered.forEach((song) => {
       const li = document.createElement('li');
       li.className = 'entity-item';
       li.innerHTML = `

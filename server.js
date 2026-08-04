@@ -32,6 +32,46 @@ app.get('/singer', (req, res) => res.sendFile(path.join(__dirname, 'public', 'si
 
 const webSessions = new Map(); // token -> { id, username, role }
 
+// ---------- Login rate limiting ----------
+// Keyed by IP+username so a single attacker can't brute-force one account,
+// without locking out other people trying that same username from
+// elsewhere. In-memory is fine here - it resets on restart, same as the
+// live session state below, and this app runs as a single process.
+const loginAttempts = new Map(); // key -> { count, firstAttemptAt, lockedUntil }
+const LOGIN_MAX_ATTEMPTS = 8;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_LOCKOUT_MS = 5 * 60 * 1000;
+
+function loginRateLimitKey(req, username) {
+  return `${req.ip}:${username.toLowerCase()}`;
+}
+
+function checkLoginRateLimit(key) {
+  const entry = loginAttempts.get(key);
+  if (!entry) return { blocked: false };
+  if (entry.lockedUntil && entry.lockedUntil > Date.now()) {
+    return { blocked: true, retryAfterSec: Math.ceil((entry.lockedUntil - Date.now()) / 1000) };
+  }
+  if (entry.lockedUntil) loginAttempts.delete(key); // lockout expired
+  return { blocked: false };
+}
+
+function recordLoginFailure(key) {
+  const now = Date.now();
+  const entry = loginAttempts.get(key) || { count: 0, firstAttemptAt: now };
+  if (now - entry.firstAttemptAt > LOGIN_WINDOW_MS) {
+    entry.count = 0;
+    entry.firstAttemptAt = now;
+  }
+  entry.count += 1;
+  if (entry.count >= LOGIN_MAX_ATTEMPTS) entry.lockedUntil = now + LOGIN_LOCKOUT_MS;
+  loginAttempts.set(key, entry);
+}
+
+function recordLoginSuccess(key) {
+  loginAttempts.delete(key);
+}
+
 function getSessionUser(req) {
   const token = parseCookies(req)[SESSION_COOKIE];
   if (!token) return null;
@@ -84,11 +124,20 @@ app.post('/api/auth/register', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   const username = String(req.body.username || '').trim();
   const password = String(req.body.password || '');
+  const rateLimitKey = loginRateLimitKey(req, username);
+
+  const limit = checkLoginRateLimit(rateLimitKey);
+  if (limit.blocked) {
+    return res.status(429).json({ error: `Too many failed attempts. Try again in ${Math.ceil(limit.retryAfterSec / 60)} minute(s).` });
+  }
+
   const db = await store.load();
   const user = (db.users || []).find((u) => u.username.toLowerCase() === username.toLowerCase());
   if (!user || !verifyPassword(password, user.passwordHash)) {
+    recordLoginFailure(rateLimitKey);
     return res.status(401).json({ error: 'Incorrect username or password.' });
   }
+  recordLoginSuccess(rateLimitKey);
   startWebSession(res, user);
   res.json({ ok: true, user: publicUser(user) });
 });
