@@ -31,6 +31,31 @@
 
   function findSong(id) { return songs.find((s) => s.id === id); }
 
+  // ---------- Undo toast ----------
+  // Deletes are soft on the server (a restore endpoint just clears
+  // deletedAt), so this is a real undo, not a "recreate a lookalike" hack.
+  // Only one toast at a time - a second delete just replaces it.
+  let undoToastTimeout = null;
+  let undoToastHandler = null;
+  function showUndoToast(message, onUndo) {
+    clearTimeout(undoToastTimeout);
+    if (undoToastHandler) undoToastBtn.removeEventListener('click', undoToastHandler);
+    undoToastMsg.textContent = message;
+    undoToast.classList.remove('hidden');
+    undoToastHandler = async () => {
+      undoToast.classList.add('hidden');
+      undoToastBtn.removeEventListener('click', undoToastHandler);
+      undoToastHandler = null;
+      await onUndo();
+    };
+    undoToastBtn.addEventListener('click', undoToastHandler);
+    undoToastTimeout = setTimeout(() => {
+      undoToast.classList.add('hidden');
+      if (undoToastHandler) undoToastBtn.removeEventListener('click', undoToastHandler);
+      undoToastHandler = null;
+    }, 6000);
+  }
+
   // ---------- DOM refs ----------
   const authScreen = document.getElementById('authScreen');
   const loginForm = document.getElementById('loginForm');
@@ -62,6 +87,9 @@
   const eventsError = document.getElementById('eventsError');
   const eventsList = document.getElementById('eventsList');
   const eventsLogoutBtn = document.getElementById('eventsLogoutBtn');
+  const undoToast = document.getElementById('undoToast');
+  const undoToastMsg = document.getElementById('undoToastMsg');
+  const undoToastBtn = document.getElementById('undoToastBtn');
 
   const startScreen = document.getElementById('startScreen');
   const startScreenTitle = document.getElementById('startScreenTitle');
@@ -240,10 +268,15 @@
         </div>`;
       li.querySelector('[data-act="open"]').addEventListener('click', () => openEvent(ev));
       li.querySelector('[data-act="del"]').addEventListener('click', async () => {
-        if (!confirm(`Delete event "${ev.name}"? This also deletes its songs, playlists, and presets.`)) return;
+        if (!confirm(`Delete event "${ev.name}"? Its songs, playlists, and presets go with it (recoverable together if you undo).`)) return;
         await apiDelete(`/api/events/${ev.id}`);
         eventsCache = eventsCache.filter((e) => e.id !== ev.id);
         renderEventsList();
+        showUndoToast(`Deleted event "${ev.name}".`, async () => {
+          const restored = await apiPost(`/api/events/${ev.id}/restore`, {});
+          eventsCache.push(restored);
+          renderEventsList();
+        });
       });
       eventsList.appendChild(li);
     });
@@ -1078,6 +1111,12 @@
         renderSongLibraryList();
         renderPlaylistSongChecks();
         renderQueue();
+        showUndoToast(`Deleted "${song.title}".`, async () => {
+          const restored = await apiPost(`/api/songs/${song.id}/restore`, {});
+          songs.push(restored);
+          renderSongLibraryList();
+          renderPlaylistSongChecks();
+        });
       });
       songLibraryList.appendChild(li);
     });
@@ -1168,6 +1207,12 @@
         playlists = playlists.filter((p) => p.id !== pl.id);
         renderPlaylistLibraryList();
         renderPlaylistOptions();
+        showUndoToast(`Deleted playlist "${pl.name}".`, async () => {
+          const restored = await apiPost(`/api/playlists/${pl.id}/restore`, {});
+          playlists.push(restored);
+          renderPlaylistLibraryList();
+          renderPlaylistOptions();
+        });
       });
       playlistLibraryList.appendChild(li);
     });
@@ -1243,6 +1288,12 @@
         presets = presets.filter((x) => x.id !== p.id);
         renderPresetLibraryList();
         renderPresetGrid();
+        showUndoToast(`Deleted preset "${p.label}".`, async () => {
+          const restored = await apiPost(`/api/presets/${p.id}/restore`, {});
+          presets.push(restored);
+          renderPresetLibraryList();
+          renderPresetGrid();
+        });
       });
       presetLibraryList.appendChild(li);
     });

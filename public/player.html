@@ -314,6 +314,13 @@
     </div>
   </div>
 
+  <!-- Undo toast: fixed-position, outside every screen div so it can appear
+       regardless of which one is currently showing (events screen or setup). -->
+  <div id="undoToast" class="undo-toast hidden">
+    <span id="undoToastMsg"></span>
+    <button type="button" id="undoToastBtn" class="btn btn-small btn-primary">Undo</button>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/player.js"></script>
   <script src="/js/sw-register.js"></script>
