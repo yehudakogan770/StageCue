@@ -402,7 +402,7 @@ app.delete('/api/singer/replies/:id', requireRole('singer'), async (req, res) =>
 app.get('/api/events', requireRole('player'), async (req, res) => {
   const db = await store.load();
   db.events = db.events || [];
-  res.json(db.events.filter((e) => e.ownerId === req.user.id));
+  res.json(db.events.filter((e) => e.ownerId === req.user.id && !e.deletedAt));
 });
 
 app.post('/api/events', requireRole('player'), async (req, res) => {
@@ -416,19 +416,28 @@ app.post('/api/events', requireRole('player'), async (req, res) => {
   res.status(201).json(event);
 });
 
+// Soft delete, like songs/playlists/presets below - its songs/playlists/
+// presets are never touched (they're just unreachable while their event
+// is hidden), so undoing an event delete restores everything at once with
+// no extra bookkeeping.
 app.delete('/api/events/:id', requireRole('player'), async (req, res) => {
   const db = await store.load();
   db.events = db.events || [];
   const idx = db.events.findIndex((e) => e.id === req.params.id && e.ownerId === req.user.id);
   if (idx === -1) return res.status(404).json({ error: 'Not found' });
-  const [removed] = db.events.splice(idx, 1);
-  // Clean up everything that belonged only to this event.
-  ['songs', 'playlists', 'presets'].forEach((resource) => {
-    db[resource] = db[resource].filter((x) => x.eventId !== removed.id);
-  });
-  db.history = (db.history || []).filter((h) => h.eventId !== removed.id);
+  db.events[idx].deletedAt = Date.now();
   await store.save(db);
-  res.json(removed);
+  res.json(db.events[idx]);
+});
+
+app.post('/api/events/:id/restore', requireRole('player'), async (req, res) => {
+  const db = await store.load();
+  db.events = db.events || [];
+  const idx = db.events.findIndex((e) => e.id === req.params.id && e.ownerId === req.user.id);
+  if (idx === -1) return res.status(404).json({ error: 'Not found' });
+  delete db.events[idx].deletedAt;
+  await store.save(db);
+  res.json(db.events[idx]);
 });
 
 // ---------- Show history ----------
@@ -484,7 +493,7 @@ function crudRoutes(resource) {
   app.get(base, auth, async (req, res) => {
     const eventId = String(req.query.eventId || '');
     const db = await store.load();
-    res.json(db[resource].filter((x) => x.ownerId === req.user.id && x.eventId === eventId));
+    res.json(db[resource].filter((x) => x.ownerId === req.user.id && x.eventId === eventId && !x.deletedAt));
   });
 
   app.post(base, auth, async (req, res) => {
@@ -507,13 +516,26 @@ function crudRoutes(resource) {
     res.json(db[resource][idx]);
   });
 
+  // Soft delete - keeps the record (just hidden from GET) so a mistaken
+  // delete can be undone. Nothing purges these; for a small personal app
+  // the storage cost of never-restored records is negligible next to the
+  // safety of a real undo.
   app.delete(`${base}/:id`, auth, async (req, res) => {
     const db = await store.load();
     const idx = db[resource].findIndex((x) => x.id === req.params.id && x.ownerId === req.user.id);
     if (idx === -1) return res.status(404).json({ error: 'Not found' });
-    const [removed] = db[resource].splice(idx, 1);
+    db[resource][idx].deletedAt = Date.now();
     await store.save(db);
-    res.json(removed);
+    res.json(db[resource][idx]);
+  });
+
+  app.post(`${base}/:id/restore`, auth, async (req, res) => {
+    const db = await store.load();
+    const idx = db[resource].findIndex((x) => x.id === req.params.id && x.ownerId === req.user.id);
+    if (idx === -1) return res.status(404).json({ error: 'Not found' });
+    delete db[resource][idx].deletedAt;
+    await store.save(db);
+    res.json(db[resource][idx]);
   });
 }
 

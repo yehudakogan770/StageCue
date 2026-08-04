@@ -296,3 +296,21 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 12px 0; }
   background: var(--danger);
 }
 .status-dot.online { background: var(--success); }
+
+.undo-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 10px 12px 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 600;
+  font-size: 13.5px;
+  max-width: 90vw;
+}
