@@ -112,6 +112,8 @@ input:focus, textarea:focus, select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(91, 140, 255, 0.22);
 }
+
+.search-input { margin-bottom: 10px; }
 input::placeholder, textarea::placeholder { color: var(--muted-2); }
 
 label {
