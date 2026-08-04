@@ -99,7 +99,7 @@
 
       <!-- Lyrics box: independent of the message box below - both can show at once.
            "Hide Lyrics" only affects this screen - the singer always still sees them. -->
-      <section class="live-block">
+      <section class="live-block live-block-lyrics">
         <div class="section-head">
           <span class="block-label">Now Showing</span>
           <div class="font-controls">
@@ -127,7 +127,7 @@
       <!-- Message box: shows on top of the lyrics on the singer's screen, doesn't replace them.
            The preset grid is height-capped and scrolls internally so having many
            quick messages never pushes the rest of the live screen off-screen. -->
-      <section class="live-block">
+      <section class="live-block live-block-message">
         <div class="section-head">
           <span class="block-label">Message</span>
           <button id="clearMessageBtn" class="btn btn-small">Clear</button>

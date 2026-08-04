@@ -141,8 +141,16 @@
   margin: 0 auto;
   width: 100%;
 }
-@media (max-width: 900px) {
+@media (max-width: 680px) {
   .layout { grid-template-columns: 1fr; }
+}
+@media (min-width: 681px) and (max-width: 1000px) {
+  /* iPad-portrait-ish widths: still 2 columns, just narrower than desktop */
+  .layout { grid-template-columns: 320px 1fr; gap: 14px; padding: 14px; }
+  /* that sidebar is still narrow enough that a label+message+Add row
+     needs to wrap instead of squeezing three inputs into ~280px */
+  .song-preset-add-row { flex-wrap: wrap; }
+  .song-preset-add-row button { flex: 1 1 100%; }
 }
 
 .main-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
@@ -253,6 +261,55 @@
 }
 .live-queue-wrap.at-end::after { opacity: 0; }
 .live-clear-row { flex: 0 0 auto; padding: 3px 14px 5px; max-width: 640px; margin: 0 auto; width: 100%; }
+
+/* ---------- Tablet+ live screen: a phone gets a single scrolling-capped
+   column because it has no vertical room to spare; a tablet does, so
+   instead of keeping everything artificially tiny, split into two
+   columns - controls on the left, the full-height playlist on the right,
+   which can now show far more than 3 songs at once. ---------- */
+@media (min-width: 700px) {
+  #liveScreen {
+    max-width: 980px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1.2fr 1fr auto auto;
+    column-gap: 28px;
+    row-gap: 4px;
+    padding: 18px 24px;
+  }
+  /* Lyrics and the message/preset grid both get a flexible row, sharing
+     whatever vertical room the tablet/desktop has to spare between them,
+     instead of one growing while the other stays capped small. Each only
+     scrolls internally once it's actually too long for the space it was
+     given - not at some arbitrary small fixed height. */
+  .live-block-lyrics {
+    grid-column: 1; grid-row: 1; min-height: 0;
+    display: flex; flex-direction: column; padding-bottom: 14px;
+  }
+  .live-block-lyrics .now-showing-wrap { flex: 1 1 auto; min-height: 0; display: flex; }
+  .live-block-lyrics .now-showing { flex: 1 1 auto; max-height: none; }
+  .live-block-lyrics .line-controls.big { flex: 0 0 auto; }
+
+  .live-block-message {
+    grid-column: 1; grid-row: 2; min-height: 0;
+    display: flex; flex-direction: column; padding-bottom: 14px;
+  }
+  .live-block-message .section-head,
+  .live-block-message .current-message,
+  .live-block-message #toggleMessageBtn,
+  .live-block-message .message-row { flex: 0 0 auto; }
+  .live-block-message .preset-grid-wrap { flex: 1 1 auto; min-height: 60px; max-height: none; margin-bottom: 8px; }
+  .live-block-message .preset-grid-scroll { height: 100%; max-height: none; display: flex; }
+  .live-block-message .preset-grid { flex: 1 1 auto; align-content: flex-start; }
+
+  .live-block-shrink { grid-column: 1; grid-row: 3; }
+  .live-queue-block { grid-column: 2; grid-row: 1 / -1; min-height: 0; padding-left: 24px; border-left: 1px solid var(--border-soft); }
+  .live-clear-row { grid-column: 1; grid-row: 4; padding: 14px 0 0; }
+  .live-divider { display: none; }
+
+  .preset-grid { grid-template-columns: repeat(3, 1fr); }
+  .current-message { max-height: 26px; }
+}
 
 .queue-toolbar { display: flex; gap: 8px; margin: 10px 0 14px; flex-wrap: wrap; }
 .queue-toolbar select { flex: 1; min-width: 160px; }
