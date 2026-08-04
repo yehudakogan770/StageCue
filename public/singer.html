@@ -40,11 +40,21 @@
           </form>
           <p id="singerAuthError" class="error hidden"></p>
           <button id="singerShowRegisterBtn" class="btn btn-small">Need an account? Register instead</button>
+          <button id="singerForgotPasswordBtn" class="btn btn-small hidden">Forgot password?</button>
           <a id="singerGoogleLoginBtn" class="btn btn-small hidden" href="/api/auth/google?role=singer">Continue with Google</a>
+
+          <div id="singerForgotPasswordBox" class="hidden">
+            <form id="singerForgotPasswordForm" class="stacked-form">
+              <input id="singerForgotUsername" placeholder="Username" required />
+              <button type="submit" class="btn btn-small">Send reset link</button>
+            </form>
+            <p id="singerForgotPasswordMsg" class="muted small-note hidden"></p>
+          </div>
 
           <form id="singerRegisterForm" class="stacked-form hidden">
             <input id="singerRegisterUsername" placeholder="Username" required autocomplete="username" />
             <input id="singerRegisterPassword" type="password" placeholder="Password (4+ characters)" required minlength="4" autocomplete="new-password" />
+            <input id="singerRegisterEmail" type="email" placeholder="Email (optional, for password reset)" />
             <button type="submit" class="btn btn-primary btn-small">Register</button>
           </form>
           <p id="singerRegisterError" class="error hidden"></p>
@@ -53,6 +63,16 @@
 
       <div id="singerLoggedInBox" class="hidden">
         <p>Signed in as <strong id="singerLoggedInAs"></strong> &mdash; <button id="singerLogoutBtn" class="btn btn-small">Log Out</button></p>
+
+        <details class="account-email-details">
+          <summary>Recovery email (for password reset)</summary>
+          <div class="song-preset-add-row">
+            <input id="singerAccountEmailInput" type="email" placeholder="you@example.com" />
+            <button type="button" id="singerSaveEmailBtn" class="btn btn-small">Save</button>
+          </div>
+          <p id="singerEmailSettingsMsg" class="muted small-note hidden"></p>
+        </details>
+
         <p class="muted small-note">Your custom quick replies (shown along with the defaults):</p>
         <ul id="singerCustomRepliesList" class="entity-list"></ul>
         <div class="song-preset-add-row">

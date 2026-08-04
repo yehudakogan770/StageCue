@@ -39,15 +39,24 @@
   const authError = document.getElementById('authError');
   const showRegisterBtn = document.getElementById('showRegisterBtn');
   const googleLoginBtn = document.getElementById('googleLoginBtn');
+  const forgotPasswordBtn = document.getElementById('forgotPasswordBtn');
+  const forgotPasswordBox = document.getElementById('forgotPasswordBox');
+  const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+  const forgotUsername = document.getElementById('forgotUsername');
+  const forgotPasswordMsg = document.getElementById('forgotPasswordMsg');
   const registerCard = document.getElementById('registerCard');
   const registerForm = document.getElementById('registerForm');
   const registerUsername = document.getElementById('registerUsername');
   const registerPassword = document.getElementById('registerPassword');
+  const registerEmail = document.getElementById('registerEmail');
   const registerError = document.getElementById('registerError');
   const showLoginBtn = document.getElementById('showLoginBtn');
 
   const eventsScreen = document.getElementById('eventsScreen');
   const loggedInAs = document.getElementById('loggedInAs');
+  const accountEmailInput = document.getElementById('accountEmailInput');
+  const saveEmailBtn = document.getElementById('saveEmailBtn');
+  const emailSettingsMsg = document.getElementById('emailSettingsMsg');
   const createEventForm = document.getElementById('createEventForm');
   const newEventName = document.getElementById('newEventName');
   const eventsError = document.getElementById('eventsError');
@@ -126,6 +135,7 @@
   async function afterLogin(user) {
     currentUser = user;
     loggedInAs.textContent = user.username;
+    accountEmailInput.value = user.email || '';
     await loadEvents();
     showScreen(eventsScreen);
   }
@@ -146,12 +156,40 @@
     await afterLogin(data.user);
   });
 
+  forgotPasswordBtn.addEventListener('click', () => {
+    forgotPasswordBox.classList.toggle('hidden');
+  });
+
+  forgotPasswordForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    forgotPasswordMsg.classList.add('hidden');
+    const res = await fetch('/api/auth/forgot-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: forgotUsername.value.trim() }),
+    });
+    const data = await res.json();
+    forgotPasswordMsg.textContent = data.message || 'If that account has a recovery email on file, a reset link has been sent.';
+    forgotPasswordMsg.classList.remove('hidden');
+    forgotUsername.value = '';
+  });
+
+  saveEmailBtn.addEventListener('click', async () => {
+    emailSettingsMsg.classList.add('hidden');
+    const res = await fetch('/api/auth/email', {
+      method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: accountEmailInput.value.trim() }),
+    });
+    const data = await res.json();
+    emailSettingsMsg.textContent = res.ok ? 'Saved.' : (data.error || 'Could not save email.');
+    emailSettingsMsg.classList.remove('hidden');
+  });
+
   registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     registerError.classList.add('hidden');
     const res = await fetch('/api/auth/register', {
       method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: registerUsername.value.trim(), password: registerPassword.value, role: 'player' }),
+      body: JSON.stringify({ username: registerUsername.value.trim(), password: registerPassword.value, email: registerEmail.value.trim(), role: 'player' }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -1120,7 +1158,10 @@
   async function boot() {
     fetch('/api/config', { credentials: 'same-origin' })
       .then((r) => r.json())
-      .then((cfg) => { if (cfg.googleEnabled) googleLoginBtn.classList.remove('hidden'); })
+      .then((cfg) => {
+        if (cfg.googleEnabled) googleLoginBtn.classList.remove('hidden');
+        if (cfg.passwordResetEnabled) forgotPasswordBtn.classList.remove('hidden');
+      })
       .catch(() => {});
 
     const res = await fetch('/api/auth/me', { credentials: 'same-origin' });

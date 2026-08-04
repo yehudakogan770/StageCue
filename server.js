@@ -24,6 +24,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/player', (req, res) => res.sendFile(path.join(__dirname, 'public', 'player.html')));
 app.get('/singer', (req, res) => res.sendFile(path.join(__dirname, 'public', 'singer.html')));
+app.get('/reset-password', (req, res) => res.sendFile(path.join(__dirname, 'public', 'reset-password.html')));
 
 // ---------- Accounts ----------
 // Keyboard players must have an account, so their songs/playlists/presets are
@@ -95,16 +96,67 @@ function requireRole(role) {
 }
 
 function publicUser(user) {
-  return { username: user.username, role: user.role };
+  return { username: user.username, role: user.role, email: user.email || null };
+}
+
+function requireAuth() {
+  return (req, res, next) => {
+    const user = getSessionUser(req);
+    if (!user) return res.status(401).json({ error: 'Please log in.' });
+    req.user = user;
+    next();
+  };
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// ---------- Password reset via email ----------
+// Only active if SENDGRID_API_KEY/EMAIL_FROM are set - otherwise "Forgot
+// password?" simply stays hidden on the frontend, same pattern as Google
+// sign-in above. Requires a SendGrid account with a verified single sender
+// (EMAIL_FROM) - see the README.
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+const EMAIL_FROM = process.env.EMAIL_FROM;
+const PASSWORD_RESET_ENABLED = Boolean(SENDGRID_API_KEY && EMAIL_FROM);
+
+const passwordResetTokens = new Map(); // token -> { userId, expiresAt }
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
+
+// Separate from the login limiter above - this guards against using the
+// reset endpoint to spam someone's inbox, not against guessing a password.
+const forgotPasswordAttempts = new Map(); // ip -> { count, firstAttemptAt }
+const FORGOT_MAX_ATTEMPTS = 5;
+const FORGOT_WINDOW_MS = 60 * 60 * 1000;
+
+async function sendPasswordResetEmail(to, resetUrl) {
+  const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${SENDGRID_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      personalizations: [{ to: [{ email: to }] }],
+      from: { email: EMAIL_FROM, name: 'StageCue' },
+      subject: 'Reset your StageCue password',
+      content: [{
+        type: 'text/plain',
+        value: `Someone (hopefully you) requested a password reset for your StageCue account.\n\nReset it here: ${resetUrl}\n\nThis link expires in 1 hour. If you didn't request this, you can safely ignore this email.`,
+      }],
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`SendGrid ${res.status}: ${body}`);
+  }
 }
 
 app.post('/api/auth/register', async (req, res) => {
   const username = String(req.body.username || '').trim();
   const password = String(req.body.password || '');
+  const email = String(req.body.email || '').trim().toLowerCase();
   const role = req.body.role === 'singer' ? 'singer' : 'player';
 
   if (username.length < 2) return res.status(400).json({ error: 'Username must be at least 2 characters.' });
   if (password.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters.' });
+  if (email && !EMAIL_RE.test(email)) return res.status(400).json({ error: 'That doesn\'t look like a valid email address.' });
 
   const db = await store.load();
   db.users = db.users || [];
@@ -113,12 +165,73 @@ app.post('/api/auth/register', async (req, res) => {
   }
 
   const user = { id: store.newId('user'), username, passwordHash: hashPassword(password), role };
+  if (email) user.email = email;
   if (role === 'singer') user.replies = [];
   db.users.push(user);
   await store.save(db);
 
   startWebSession(res, user);
   res.status(201).json({ ok: true, user: publicUser(user) });
+});
+
+app.put('/api/auth/email', requireAuth(), async (req, res) => {
+  const email = String(req.body.email || '').trim().toLowerCase();
+  if (email && !EMAIL_RE.test(email)) return res.status(400).json({ error: 'That doesn\'t look like a valid email address.' });
+  const db = await store.load();
+  const user = db.users.find((u) => u.id === req.user.id);
+  user.email = email || null;
+  await store.save(db);
+  res.json({ ok: true, email: user.email });
+});
+
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const username = String(req.body.username || '').trim();
+  const generic = { ok: true, message: 'If that account has a recovery email on file, a reset link has been sent.' };
+  if (!PASSWORD_RESET_ENABLED || !username) return res.json(generic);
+
+  const now = Date.now();
+  const attempt = forgotPasswordAttempts.get(req.ip) || { count: 0, firstAttemptAt: now };
+  if (now - attempt.firstAttemptAt > FORGOT_WINDOW_MS) {
+    attempt.count = 0;
+    attempt.firstAttemptAt = now;
+  }
+  attempt.count += 1;
+  forgotPasswordAttempts.set(req.ip, attempt);
+  if (attempt.count > FORGOT_MAX_ATTEMPTS) return res.json(generic);
+
+  const db = await store.load();
+  const user = (db.users || []).find((u) => u.username.toLowerCase() === username.toLowerCase());
+  if (user && user.email) {
+    const token = crypto.randomBytes(32).toString('hex');
+    passwordResetTokens.set(token, { userId: user.id, expiresAt: Date.now() + RESET_TOKEN_TTL_MS });
+    const resetUrl = `${req.protocol}://${req.get('host')}/reset-password?token=${token}`;
+    try {
+      await sendPasswordResetEmail(user.email, resetUrl);
+    } catch (err) {
+      console.error('Failed to send password reset email:', err.message);
+    }
+  }
+  res.json(generic);
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  const token = String(req.body.token || '');
+  const password = String(req.body.password || '');
+  if (password.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters.' });
+
+  const entry = passwordResetTokens.get(token);
+  if (!entry || entry.expiresAt < Date.now()) {
+    return res.status(400).json({ error: 'This reset link is invalid or has expired. Request a new one.' });
+  }
+
+  const db = await store.load();
+  const user = db.users.find((u) => u.id === entry.userId);
+  if (!user) return res.status(400).json({ error: 'Account no longer exists.' });
+
+  user.passwordHash = hashPassword(password);
+  await store.save(db);
+  passwordResetTokens.delete(token);
+  res.json({ ok: true });
 });
 
 app.post('/api/auth/login', async (req, res) => {
@@ -165,7 +278,7 @@ const GOOGLE_ENABLED = Boolean(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET);
 const GOOGLE_NONCE_COOKIE = 'stagecue_google_nonce';
 
 app.get('/api/config', (req, res) => {
-  res.json({ googleEnabled: GOOGLE_ENABLED });
+  res.json({ googleEnabled: GOOGLE_ENABLED, passwordResetEnabled: PASSWORD_RESET_ENABLED });
 });
 
 if (GOOGLE_ENABLED) {

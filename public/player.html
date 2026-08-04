@@ -28,7 +28,17 @@
       </form>
       <p id="authError" class="error hidden"></p>
       <button id="showRegisterBtn" class="btn btn-small">Need an account? Register</button>
+      <button id="forgotPasswordBtn" class="btn btn-small hidden">Forgot password?</button>
       <a id="googleLoginBtn" class="btn btn-full hidden" href="/api/auth/google?role=player">Continue with Google</a>
+
+      <div id="forgotPasswordBox" class="hidden">
+        <hr />
+        <form id="forgotPasswordForm" class="stacked-form">
+          <label>Username<input id="forgotUsername" required /></label>
+          <button type="submit" class="btn btn-small">Send reset link</button>
+        </form>
+        <p id="forgotPasswordMsg" class="muted small-note hidden"></p>
+      </div>
     </div>
 
     <div class="card start-card hidden" id="registerCard">
@@ -36,6 +46,7 @@
       <form id="registerForm" class="stacked-form">
         <label>Username<input id="registerUsername" required /></label>
         <label>Password (4+ characters)<input id="registerPassword" type="password" required minlength="4" /></label>
+        <label>Email (optional, for password reset)<input id="registerEmail" type="email" /></label>
         <button type="submit" class="btn btn-primary btn-full">Register</button>
       </form>
       <p id="registerError" class="error hidden"></p>
@@ -50,6 +61,16 @@
       <span class="brand-mark brand-mark-lg start-brand"><svg class="cue-mark" viewBox="0 0 24 24" fill="none"><path d="M3 20h18" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/><path d="M7 6v12l11-6-11-6z" fill="var(--accent)"/></svg><span class="mark-word">Stage<span class="hi">Cue</span></span></span>
       <h1>Your Events</h1>
       <p>Signed in as <strong id="loggedInAs"></strong>. Each event keeps its own songs, playlists, and presets.</p>
+
+      <details class="account-email-details">
+        <summary>Recovery email (for password reset)</summary>
+        <div class="song-preset-add-row">
+          <input id="accountEmailInput" type="email" placeholder="you@example.com" />
+          <button type="button" id="saveEmailBtn" class="btn btn-small">Save</button>
+        </div>
+        <p id="emailSettingsMsg" class="muted small-note hidden"></p>
+      </details>
+
       <form id="createEventForm" class="stacked-form">
         <input id="newEventName" placeholder="e.g. Sunday Service" required maxlength="60" />
         <button type="submit" class="btn btn-primary btn-full">+ Create Event</button>

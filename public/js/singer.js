@@ -27,11 +27,20 @@
   const singerLoginPassword = document.getElementById('singerLoginPassword');
   const singerAuthError = document.getElementById('singerAuthError');
   const singerShowRegisterBtn = document.getElementById('singerShowRegisterBtn');
+  const singerForgotPasswordBtn = document.getElementById('singerForgotPasswordBtn');
+  const singerForgotPasswordBox = document.getElementById('singerForgotPasswordBox');
+  const singerForgotPasswordForm = document.getElementById('singerForgotPasswordForm');
+  const singerForgotUsername = document.getElementById('singerForgotUsername');
+  const singerForgotPasswordMsg = document.getElementById('singerForgotPasswordMsg');
   const singerRegisterForm = document.getElementById('singerRegisterForm');
   const singerRegisterUsername = document.getElementById('singerRegisterUsername');
   const singerRegisterPassword = document.getElementById('singerRegisterPassword');
+  const singerRegisterEmail = document.getElementById('singerRegisterEmail');
   const singerRegisterError = document.getElementById('singerRegisterError');
   const singerLogoutBtn = document.getElementById('singerLogoutBtn');
+  const singerAccountEmailInput = document.getElementById('singerAccountEmailInput');
+  const singerSaveEmailBtn = document.getElementById('singerSaveEmailBtn');
+  const singerEmailSettingsMsg = document.getElementById('singerEmailSettingsMsg');
   const singerCustomRepliesList = document.getElementById('singerCustomRepliesList');
   const newReplyText = document.getElementById('newReplyText');
   const addReplyBtn = document.getElementById('addReplyBtn');
@@ -125,6 +134,7 @@
   function showSingerLoggedIn(user) {
     singerUser = user;
     singerLoggedInAs.textContent = user.username;
+    singerAccountEmailInput.value = user.email || '';
     singerLoggedOutBox.classList.add('hidden');
     singerLoggedInBox.classList.remove('hidden');
   }
@@ -165,7 +175,7 @@
     singerRegisterError.classList.add('hidden');
     const { ok, data } = await apiCall('/api/auth/register', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: singerRegisterUsername.value.trim(), password: singerRegisterPassword.value, role: 'singer' }),
+      body: JSON.stringify({ username: singerRegisterUsername.value.trim(), password: singerRegisterPassword.value, email: singerRegisterEmail.value.trim(), role: 'singer' }),
     });
     if (!ok) {
       singerRegisterError.textContent = data.error || 'Could not register.';
@@ -179,6 +189,32 @@
   singerLogoutBtn.addEventListener('click', async () => {
     await apiCall('/api/auth/logout', { method: 'POST' });
     location.reload();
+  });
+
+  singerForgotPasswordBtn.addEventListener('click', () => {
+    singerForgotPasswordBox.classList.toggle('hidden');
+  });
+
+  singerForgotPasswordForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    singerForgotPasswordMsg.classList.add('hidden');
+    const { data } = await apiCall('/api/auth/forgot-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: singerForgotUsername.value.trim() }),
+    });
+    singerForgotPasswordMsg.textContent = (data && data.message) || 'If that account has a recovery email on file, a reset link has been sent.';
+    singerForgotPasswordMsg.classList.remove('hidden');
+    singerForgotUsername.value = '';
+  });
+
+  singerSaveEmailBtn.addEventListener('click', async () => {
+    singerEmailSettingsMsg.classList.add('hidden');
+    const { ok, data } = await apiCall('/api/auth/email', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: singerAccountEmailInput.value.trim() }),
+    });
+    singerEmailSettingsMsg.textContent = ok ? 'Saved.' : ((data && data.error) || 'Could not save email.');
+    singerEmailSettingsMsg.classList.remove('hidden');
   });
 
   addReplyBtn.addEventListener('click', async () => {
@@ -196,7 +232,10 @@
 
   fetch('/api/config', { credentials: 'same-origin' })
     .then((r) => r.json())
-    .then((cfg) => { if (cfg.googleEnabled) singerGoogleLoginBtn.classList.remove('hidden'); })
+    .then((cfg) => {
+      if (cfg.googleEnabled) singerGoogleLoginBtn.classList.remove('hidden');
+      if (cfg.passwordResetEnabled) singerForgotPasswordBtn.classList.remove('hidden');
+    })
     .catch(() => {});
 
   (async () => {
