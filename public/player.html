@@ -6,7 +6,7 @@
 <title>StageCue - Keyboard Player</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/css/style.css" />
 <link rel="stylesheet" href="/css/player.css" />
 </head>
@@ -15,7 +15,7 @@
   <!-- Auth screen: shown first - a keyboard player account keeps your songs/playlists/presets private to you -->
   <div id="authScreen" class="start-screen">
     <div class="card start-card">
-      <span class="brand-mark start-brand"><span class="mark-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M9 18V5l11-2v13" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" stroke="#fff" stroke-width="1.8"/><circle cx="17" cy="16" r="3" stroke="#fff" stroke-width="1.8"/></svg></span><span class="mark-word">StageCue</span></span>
+      <span class="brand-mark brand-mark-lg start-brand"><svg class="cue-mark" viewBox="0 0 24 24" fill="none"><path d="M3 20h18" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/><path d="M7 6v12l11-6-11-6z" fill="var(--accent)"/></svg><span class="mark-word">Stage<span class="hi">Cue</span></span></span>
       <h1>Keyboard Player</h1>
       <p>Log in to access your songs, playlists, and presets.</p>
       <form id="loginForm" class="stacked-form">
@@ -44,7 +44,7 @@
        Each event has its own completely separate songs/playlists/presets. -->
   <div id="eventsScreen" class="start-screen hidden">
     <div class="card start-card">
-      <span class="brand-mark start-brand"><span class="mark-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M9 18V5l11-2v13" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" stroke="#fff" stroke-width="1.8"/><circle cx="17" cy="16" r="3" stroke="#fff" stroke-width="1.8"/></svg></span><span class="mark-word">StageCue</span></span>
+      <span class="brand-mark brand-mark-lg start-brand"><svg class="cue-mark" viewBox="0 0 24 24" fill="none"><path d="M3 20h18" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/><path d="M7 6v12l11-6-11-6z" fill="var(--accent)"/></svg><span class="mark-word">Stage<span class="hi">Cue</span></span></span>
       <h1>Your Events</h1>
       <p>Signed in as <strong id="loggedInAs"></strong>. Each event keeps its own songs, playlists, and presets.</p>
       <form id="createEventForm" class="stacked-form">
@@ -60,7 +60,7 @@
   <!-- Start screen: shown after an event is chosen, before a session exists -->
   <div id="startScreen" class="start-screen hidden">
     <div class="card start-card">
-      <span class="brand-mark start-brand"><span class="mark-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M9 18V5l11-2v13" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" stroke="#fff" stroke-width="1.8"/><circle cx="17" cy="16" r="3" stroke="#fff" stroke-width="1.8"/></svg></span><span class="mark-word">StageCue</span></span>
+      <span class="brand-mark brand-mark-lg start-brand"><svg class="cue-mark" viewBox="0 0 24 24" fill="none"><path d="M3 20h18" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/><path d="M7 6v12l11-6-11-6z" fill="var(--accent)"/></svg><span class="mark-word">Stage<span class="hi">Cue</span></span></span>
       <h1 id="startScreenTitle">Keyboard Player</h1>
       <p>Start a session, then give the code to your singer.</p>
       <label for="customCodeInput">Session code (optional)</label>
@@ -74,12 +74,18 @@
   <!-- Main control screen -->
   <div id="mainScreen" class="app-shell hidden">
     <header class="topbar">
-      <span class="brand-mark"><span class="mark-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M9 18V5l11-2v13" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" stroke="#fff" stroke-width="1.8"/><circle cx="17" cy="16" r="3" stroke="#fff" stroke-width="1.8"/></svg></span><span class="mark-word">StageCue</span></span>
-      <div class="session-info">
-        <span class="code-pill" id="eventNamePill">Event</span>
-        <span class="code-pill">Code: <strong id="codeDisplay">-----</strong></span>
-        <span id="playerConnStatus" class="status-pill hidden"><span class="status-dot online"></span> Connected</span>
-        <span id="singerStatus" class="status-pill"><span class="status-dot"></span> Singer not connected</span>
+      <span class="brand-mark"><svg class="cue-mark" viewBox="0 0 24 24" fill="none"><path d="M3 20h18" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/><path d="M7 6v12l11-6-11-6z" fill="var(--accent)"/></svg><span class="mark-word">Stage<span class="hi">Cue</span></span></span>
+      <div class="session-info-wrap" id="sessionInfoWrap">
+        <div class="session-info" id="sessionInfo">
+          <!-- Singer connection status leads - it's the one thing worth
+               glancing at mid-show. Event/code pills come after since they
+               matter most before the show starts, and can scroll out of view
+               on a phone without losing anything critical. -->
+          <span id="singerStatus" class="status-pill"><span class="status-dot"></span> Singer not connected</span>
+          <span id="playerConnStatus" class="status-pill hidden"><span class="status-dot online"></span> Connected</span>
+          <span class="code-pill">Code: <strong id="codeDisplay">-----</strong></span>
+          <span class="code-pill" id="eventNamePill">Event</span>
+        </div>
       </div>
       <div class="topbar-actions">
         <button id="manageToggleBtn" class="btn btn-primary btn-small">Go Live</button>
@@ -89,16 +95,18 @@
 
     <div id="reactionBanner" class="reaction-banner hidden"></div>
 
-    <!-- ============ LIVE SCREEN: shown after "Launch Event" - just what's needed to run the show ============ -->
+    <!-- ============ LIVE SCREEN: shown after "Go Live" - a fixed-height shell sized
+         to fit a phone screen without scrolling. Only the playlist list scrolls
+         internally, same as the message-preset grid below. ============ -->
     <div id="liveScreen" class="hidden">
 
       <!-- Lyrics box: independent of the message box below - both can show at once.
            "Hide Lyrics" only affects this screen - the singer always still sees them. -->
-      <section class="card live-card">
+      <section class="live-block">
         <div class="section-head">
-          <h2>Lyrics</h2>
+          <span class="block-label">Now Showing</span>
           <div class="font-controls">
-            <button class="btn btn-small" id="hideLyricsBtn">Hide Lyrics</button>
+            <button class="btn btn-small" id="hideLyricsBtn">Hide</button>
             <button class="btn btn-small" id="fontDownBtn">A-</button>
             <button class="btn btn-small" id="fontUpBtn">A+</button>
           </div>
@@ -115,34 +123,50 @@
         </div>
       </section>
 
-      <section class="card live-card">
-        <button id="nextSongBtn" class="btn btn-primary btn-big btn-full">&#9654;&#9654; Next Song</button>
-        <p id="upNextLabel" class="muted up-next">Queue is empty &mdash; add songs in Setup.</p>
-        <h2 class="playlist-heading">Playlist</h2>
-        <p class="muted small-note">Tap any song to send it now.</p>
-        <ol id="liveQueueList" class="queue-list"></ol>
-      </section>
+      <hr class="live-divider" />
 
-      <!-- Message box: shows on top of the lyrics on the singer's screen, doesn't replace them -->
-      <section class="card live-card">
+      <!-- Message box: shows on top of the lyrics on the singer's screen, doesn't replace them.
+           The preset grid is height-capped and scrolls internally so having many
+           quick messages never pushes the rest of the live screen off-screen. -->
+      <section class="live-block">
         <div class="section-head">
-          <h2>Message</h2>
+          <span class="block-label">Message</span>
           <button id="clearMessageBtn" class="btn btn-small">Clear</button>
         </div>
-        <div id="currentMessage" class="now-showing">
+        <div id="currentMessage" class="current-message">
           <p class="muted">No message showing.</p>
         </div>
-        <div id="presetGrid" class="preset-grid"></div>
-        <button id="toggleMessageBtn" class="btn btn-full">&#9998; Custom Message</button>
+        <div class="preset-grid-wrap" id="presetGridWrap">
+          <div class="preset-grid-scroll" id="presetGridScroll">
+            <div id="presetGrid" class="preset-grid"></div>
+          </div>
+        </div>
+        <button id="toggleMessageBtn" class="btn btn-small btn-full">&#9998; Custom Message</button>
         <div id="messageBox" class="message-row hidden">
           <input id="messageInput" type="text" placeholder="Type a message for the singer..." maxlength="200" />
           <button id="sendMessageBtn" class="btn btn-primary">Send</button>
         </div>
       </section>
 
-      <section class="card live-card">
-        <button id="clearScreenBtn" class="btn btn-danger btn-full">Clear Lyrics &amp; Message</button>
+      <hr class="live-divider" />
+
+      <section class="live-block live-block-shrink">
+        <button id="nextSongBtn" class="btn btn-primary btn-big btn-full">&#9654;&#9654; Next Song</button>
+        <p id="upNextLabel" class="muted up-next">Queue is empty &mdash; add songs in Setup.</p>
       </section>
+
+      <hr class="live-divider" />
+
+      <section class="live-block live-queue-block">
+        <div class="section-head">
+          <span class="block-label">Playlist</span>
+        </div>
+        <ol id="liveQueueList" class="queue-list live-queue-list"></ol>
+      </section>
+
+      <div class="live-clear-row">
+        <button id="clearScreenBtn" class="btn btn-small btn-danger btn-full">Clear Lyrics &amp; Message</button>
+      </div>
     </div>
 
     <!-- ============ SETUP SCREEN: default view - songs, playlists, presets, queue ============ -->

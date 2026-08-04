@@ -83,6 +83,10 @@
   const toggleMessageBtn = document.getElementById('toggleMessageBtn');
   const messageBox = document.getElementById('messageBox');
   const presetGrid = document.getElementById('presetGrid');
+  const presetGridWrap = document.getElementById('presetGridWrap');
+  const presetGridScroll = document.getElementById('presetGridScroll');
+  const sessionInfo = document.getElementById('sessionInfo');
+  const sessionInfoWrap = document.getElementById('sessionInfoWrap');
 
   const nextSongBtn = document.getElementById('nextSongBtn');
   const upNextLabel = document.getElementById('upNextLabel');
@@ -243,7 +247,18 @@
     renderNowShowing();
     renderCurrentMessage();
     renderPresetGrid();
+    updateSessionInfoFade();
   }
+
+  // Shows a fade at the right edge of the topbar's pill row whenever it's
+  // scrolled somewhere other than the end - on narrow phones the row
+  // scrolls sideways instead of wrapping to multiple lines.
+  function updateSessionInfoFade() {
+    const atEnd = sessionInfo.scrollLeft + sessionInfo.clientWidth >= sessionInfo.scrollWidth - 2;
+    sessionInfoWrap.classList.toggle('at-end', atEnd);
+  }
+  sessionInfo.addEventListener('scroll', updateSessionInfoFade);
+  window.addEventListener('resize', updateSessionInfoFade);
 
   startBtn.addEventListener('click', () => {
     startError.classList.add('hidden');
@@ -514,7 +529,16 @@
       btn.addEventListener('click', () => pushUpdate({ message: p.message }));
       presetGrid.appendChild(btn);
     });
+    updatePresetScrollFade();
   }
+
+  // Shows a fade at the bottom of the preset grid whenever it's scrolled
+  // somewhere other than the end, hinting that more presets exist below.
+  function updatePresetScrollFade() {
+    const atEnd = presetGridScroll.scrollTop + presetGridScroll.clientHeight >= presetGridScroll.scrollHeight - 2;
+    presetGridWrap.classList.toggle('at-end', atEnd);
+  }
+  presetGridScroll.addEventListener('scroll', updatePresetScrollFade);
 
   // ---------- Queue ----------
   // Namespaced per-event so switching events doesn't mix up their queues.

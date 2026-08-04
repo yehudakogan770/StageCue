@@ -11,6 +11,7 @@
   const leaveBtn = document.getElementById('leaveBtn');
   const display = document.getElementById('display');
   const replyBar = document.getElementById('replyBar');
+  const replyBarWrap = document.getElementById('replyBarWrap');
   const playerStatusBanner = document.getElementById('playerStatusBanner');
   const singerFontUpBtn = document.getElementById('singerFontUpBtn');
   const singerFontDownBtn = document.getElementById('singerFontDownBtn');
@@ -88,8 +89,17 @@
       });
       replyBar.appendChild(btn);
     });
+    updateReplyScrollFade();
   }
   renderReplyBar();
+
+  // Shows a fade at the bottom of the reply bar whenever it's scrolled
+  // somewhere other than the end, hinting that more replies exist below.
+  function updateReplyScrollFade() {
+    const atEnd = replyBar.scrollTop + replyBar.clientHeight >= replyBar.scrollHeight - 2;
+    replyBarWrap.classList.toggle('at-end', atEnd);
+  }
+  replyBar.addEventListener('scroll', updateReplyScrollFade);
 
   function renderCustomRepliesList() {
     singerCustomRepliesList.innerHTML = '';
