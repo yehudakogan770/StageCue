@@ -527,7 +527,7 @@ const sessions = new Map(); // code -> { playerSocketId, singerSocketIds: Set, s
 const RECONNECT_GRACE_MS = Number(process.env.RECONNECT_GRACE_MS) || 45000; // how long a session survives a dropped player connection
 
 function makeCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars
+  const chars = '0123456789';
   let code;
   do {
     code = Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
