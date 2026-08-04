@@ -191,7 +191,8 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 12px 0; }
    marketing hero: a nameplate row, one line of copy, two switches sized
    like real controls, a footer line. Nothing scales up to fill the page. */
 .landing {
-  min-height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -227,10 +228,17 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 12px 0; }
   letter-spacing: 0.05em; text-transform: uppercase; color: var(--text); margin-bottom: 6px;
 }
 .switch .sw-sub { display: block; font-size: 12.5px; color: var(--muted-2); }
-.switch:hover { border-color: var(--accent); }
-.switch.singer:hover { border-color: var(--success); }
-.switch:hover .sw-label { color: var(--accent-hover); }
-.switch.singer:hover .sw-label { color: var(--success); }
+/* Scoped to real pointers with hover - otherwise touch browsers keep the
+   hover state "stuck" on whichever switch was tapped last (no mouseleave
+   event ever fires on touch), which reads as a stray highlighted button. */
+@media (hover: hover) and (pointer: fine) {
+  .switch:hover { border-color: var(--accent); }
+  .switch.singer:hover { border-color: var(--success); }
+  .switch:hover .sw-label { color: var(--accent-hover); }
+  .switch.singer:hover .sw-label { color: var(--success); }
+}
+.switch:active { border-color: var(--accent); }
+.switch.singer:active { border-color: var(--success); }
 
 .unit-foot {
   margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--border-soft);
