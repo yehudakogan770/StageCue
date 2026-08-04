@@ -603,6 +603,13 @@ io.on('connection', (socket) => {
     socket.to(`session:${socket.data.code}`).emit('state:update', session.state);
   });
 
+  // A one-off attention cue, not part of the persisted live state - it
+  // should never replay when a singer reconnects or joins mid-flash.
+  socket.on('player:flash', () => {
+    if (socket.data.role !== 'player' || !socket.data.code) return;
+    socket.to(`session:${socket.data.code}`).emit('singer:flash');
+  });
+
   socket.on('singer:react', (text) => {
     if (socket.data.role !== 'singer' || !socket.data.code) return;
     const session = sessions.get(socket.data.code);

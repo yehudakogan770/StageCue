@@ -30,6 +30,27 @@
   overflow: hidden;
 }
 
+/* A one-off attention cue from the player ("look at your screen") - pulses
+   the whole viewport briefly, then disappears on its own. Never left
+   visible: the base rule is opacity 0, the animation only runs while the
+   .flashing class is present, and nothing re-adds that class until the
+   next flash. */
+.flash-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--accent);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 999;
+}
+.flash-overlay.flashing {
+  animation: stagecue-flash 0.5s ease-in-out 3;
+}
+@keyframes stagecue-flash {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.6; }
+}
+
 .top-strip {
   flex: 0 0 auto;
   display: flex;
