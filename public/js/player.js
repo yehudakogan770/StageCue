@@ -462,13 +462,14 @@
     if (!saved) return;
     (async () => {
       const savedEventId = localStorage.getItem(SESSION_EVENT_ID_KEY);
+      const savedEventName = localStorage.getItem(SESSION_EVENT_NAME_KEY) || '';
       if (savedEventId && savedEventId !== currentEventId) {
         currentEventId = savedEventId;
-        currentEventName = localStorage.getItem(SESSION_EVENT_NAME_KEY) || '';
+        currentEventName = savedEventName;
         eventNamePill.textContent = `Event: ${currentEventName}`;
         await loadEventData();
       }
-      socket.emit('player:resume', saved, (ack) => {
+      socket.emit('player:resume', saved, async (ack) => {
         if (ack && ack.ok) {
           enterSession(ack.code, ack.state);
           return;
@@ -476,9 +477,27 @@
         localStorage.removeItem(SESSION_KEY);
         localStorage.removeItem(SESSION_EVENT_ID_KEY);
         localStorage.removeItem(SESSION_EVENT_NAME_KEY);
+        localStorage.removeItem(SESSION_LOG_KEY);
         if (sessionCode) {
+          // Was already live in this tab and got disconnected mid-show (e.g.
+          // the server restarted under it) - reload for a clean, consistent
+          // state rather than patching up a half-live screen in place.
           alert('This session could not be recovered after a long disconnect. Please start a new one.');
           location.reload();
+          return;
+        }
+        // A fresh page load (e.g. reopening the app after the server
+        // restarted) found no session to resume. The event and its songs/
+        // playlists/presets are all still intact in the database - only
+        // the live connection needs a fresh code - so go straight to
+        // Start Session for this event instead of leaving the screen
+        // blank or sending the player all the way back to the events list.
+        if (currentEventId) {
+          startScreenTitle.textContent = savedEventName || currentEventName || 'Keyboard Player';
+          showScreen(startScreen);
+        } else {
+          await loadEvents();
+          showScreen(eventsScreen);
         }
       });
     })();
@@ -1030,6 +1049,7 @@
   const songLibraryList = document.getElementById('songLibraryList');
   const songSearchInput = document.getElementById('songSearchInput');
   let songSearchQuery = '';
+  const openArtistGroups = new Set();
   songSearchInput.addEventListener('input', () => {
     songSearchQuery = songSearchInput.value.trim().toLowerCase();
     renderSongLibraryList();
@@ -1104,84 +1124,103 @@
   function renderSongLibraryList() {
     songLibraryList.innerHTML = '';
     if (songs.length === 0) {
-      songLibraryList.innerHTML = '<li class="muted">No songs yet.</li>';
+      songLibraryList.innerHTML = '<p class="muted">No songs yet.</p>';
       return;
     }
     const filtered = songSearchQuery
       ? songs.filter((s) => s.title.toLowerCase().includes(songSearchQuery) || (s.artist || '').toLowerCase().includes(songSearchQuery))
       : songs;
     if (filtered.length === 0) {
-      songLibraryList.innerHTML = '<li class="muted">No songs match your search.</li>';
+      songLibraryList.innerHTML = '<p class="muted">No songs match your search.</p>';
       return;
     }
 
-    // Organized by artist: grouped under a heading and sorted alphabetically,
-    // with songs missing an artist grouped last. Purely a display order -
-    // the underlying songs array (and anything derived from it, like
-    // playlist checklists) stays in creation order.
-    const sorted = filtered.slice().sort((a, b) => {
-      const artistA = (a.artist || '').trim();
-      const artistB = (b.artist || '').trim();
-      if (!artistA && artistB) return 1;
-      if (artistA && !artistB) return -1;
-      const artistCompare = artistA.toLowerCase().localeCompare(artistB.toLowerCase());
-      if (artistCompare !== 0) return artistCompare;
-      return a.title.toLowerCase().localeCompare(b.title.toLowerCase());
+    // Organized by artist as a collapsible group per artist (native
+    // <details>, so 15 artists x 30 songs doesn't turn into one giant
+    // unmanageable flat list) - sorted alphabetically, songs missing an
+    // artist grouped last under "No Artist". Purely a display
+    // arrangement - the underlying songs array (and anything derived
+    // from it, like playlist checklists) stays in creation order.
+    const groups = new Map(); // artistKey -> { label, songs: [] }
+    filtered.forEach((song) => {
+      const label = (song.artist || '').trim() || 'No Artist';
+      const key = label.toLowerCase();
+      if (!groups.has(key)) groups.set(key, { label, songs: [] });
+      groups.get(key).songs.push(song);
+    });
+    const sortedKeys = Array.from(groups.keys()).sort((a, b) => {
+      if (a === 'no artist' && b !== 'no artist') return 1;
+      if (b === 'no artist' && a !== 'no artist') return -1;
+      return a.localeCompare(b);
     });
 
-    let lastArtistKey = null;
-    sorted.forEach((song) => {
-      const artistLabel = (song.artist || '').trim() || 'No Artist';
-      const artistKey = artistLabel.toLowerCase();
-      if (artistKey !== lastArtistKey) {
-        const header = document.createElement('li');
-        header.className = 'library-group-header';
-        header.textContent = artistLabel;
-        songLibraryList.appendChild(header);
-        lastArtistKey = artistKey;
-      }
+    sortedKeys.forEach((key) => {
+      const group = groups.get(key);
+      group.songs.sort((a, b) => a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
 
-      const li = document.createElement('li');
-      li.className = 'entity-item';
-      li.innerHTML = `
-        <div class="info"><strong>${escapeHtml(song.title)}</strong><span>${escapeHtml(songKeyBpmLine(song))}</span></div>
-        <div class="actions">
-          <button class="btn btn-small" data-act="add">Queue</button>
-          <button class="btn btn-small" data-act="edit">Edit</button>
-          <button class="btn btn-small btn-danger" data-act="del">Del</button>
-        </div>`;
-      li.querySelector('[data-act="add"]').addEventListener('click', () => addToQueue(song.id));
-      li.querySelector('[data-act="edit"]').addEventListener('click', () => {
-        songIdField.value = song.id;
-        songTitle.value = song.title;
-        songArtist.value = song.artist || '';
-        songKey.value = song.key || '';
-        songBpm.value = song.bpm || '';
-        songLyrics.value = song.lyrics || '';
-        songPresetDraft = (song.presets || []).slice();
-        renderSongPresetDraftList();
-        songCancelBtn.classList.remove('hidden');
-        songLibraryTab.classList.add('song-form-open');
-        selectTab('library');
+      const details = document.createElement('details');
+      details.className = 'artist-group';
+      // While actively searching, every matching group opens automatically
+      // so results are never hidden behind a collapsed artist you'd have
+      // to know to expand. Otherwise, whatever the singer manually opened
+      // stays open across re-renders (song add/edit/delete all re-render).
+      details.open = songSearchQuery ? true : openArtistGroups.has(key);
+      details.addEventListener('toggle', () => {
+        if (details.open) openArtistGroups.add(key);
+        else openArtistGroups.delete(key);
       });
-      li.querySelector('[data-act="del"]').addEventListener('click', async () => {
-        if (!confirm(`Delete "${song.title}"?`)) return;
-        await apiDelete(`/api/songs/${song.id}`);
-        songs = songs.filter((s) => s.id !== song.id);
-        queue = queue.filter((id) => id !== song.id);
-        if (currentIndex >= queue.length) currentIndex = -1;
-        persistQueue();
-        renderSongLibraryList();
-        renderPlaylistSongChecks();
-        renderQueue();
-        showUndoToast(`Deleted "${song.title}".`, async () => {
-          const restored = await apiPost(`/api/songs/${song.id}/restore`, {});
-          songs.push(restored);
+
+      const summary = document.createElement('summary');
+      summary.textContent = `${group.label} (${group.songs.length})`;
+      details.appendChild(summary);
+
+      const ul = document.createElement('ul');
+      ul.className = 'artist-song-list';
+      group.songs.forEach((song) => {
+        const li = document.createElement('li');
+        li.className = 'entity-item';
+        li.innerHTML = `
+          <div class="info"><strong>${escapeHtml(song.title)}</strong><span>${escapeHtml(songKeyBpmLine(song))}</span></div>
+          <div class="actions">
+            <button class="btn btn-small" data-act="add">Queue</button>
+            <button class="btn btn-small" data-act="edit">Edit</button>
+            <button class="btn btn-small btn-danger" data-act="del">Del</button>
+          </div>`;
+        li.querySelector('[data-act="add"]').addEventListener('click', () => addToQueue(song.id));
+        li.querySelector('[data-act="edit"]').addEventListener('click', () => {
+          songIdField.value = song.id;
+          songTitle.value = song.title;
+          songArtist.value = song.artist || '';
+          songKey.value = song.key || '';
+          songBpm.value = song.bpm || '';
+          songLyrics.value = song.lyrics || '';
+          songPresetDraft = (song.presets || []).slice();
+          renderSongPresetDraftList();
+          songCancelBtn.classList.remove('hidden');
+          songLibraryTab.classList.add('song-form-open');
+          selectTab('library');
+        });
+        li.querySelector('[data-act="del"]').addEventListener('click', async () => {
+          if (!confirm(`Delete "${song.title}"?`)) return;
+          await apiDelete(`/api/songs/${song.id}`);
+          songs = songs.filter((s) => s.id !== song.id);
+          queue = queue.filter((id) => id !== song.id);
+          if (currentIndex >= queue.length) currentIndex = -1;
+          persistQueue();
           renderSongLibraryList();
           renderPlaylistSongChecks();
+          renderQueue();
+          showUndoToast(`Deleted "${song.title}".`, async () => {
+            const restored = await apiPost(`/api/songs/${song.id}/restore`, {});
+            songs.push(restored);
+            renderSongLibraryList();
+            renderPlaylistSongChecks();
+          });
         });
+        ul.appendChild(li);
       });
-      songLibraryList.appendChild(li);
+      details.appendChild(ul);
+      songLibraryList.appendChild(details);
     });
   }
 

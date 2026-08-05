@@ -199,15 +199,29 @@ label {
 .entity-item .info span { color: var(--muted); font-size: 12px; }
 .entity-item .actions { display: flex; gap: 4px; }
 
-.library-group-header {
-  font-size: 11px;
+.artist-group + .artist-group { margin-top: 6px; }
+.artist-group summary {
+  cursor: pointer;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--muted-2);
-  padding: 8px 2px 2px;
+  padding: 6px 2px;
+  list-style: none;
 }
-.library-group-header:first-child { padding-top: 0; }
+.artist-group summary::-webkit-details-marker { display: none; }
+.artist-group summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 5px;
+  font-size: 10px;
+  transition: transform 0.15s ease;
+}
+.artist-group[open] summary::before { transform: rotate(90deg); }
+.artist-group summary:hover { color: var(--text); }
+
+.artist-song-list { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 
 .song-preset-add-row { display: flex; gap: 6px; }
 .song-preset-add-row input { flex: 1; min-width: 0; }
