@@ -94,10 +94,30 @@ function getSessionUser(req) {
   return webSessions.get(token) || null;
 }
 
-function startWebSession(res, user) {
+// webSessions is an in-memory cache for fast per-request lookups, but it's
+// also mirrored to the database - otherwise every server restart (a
+// deploy, a crash, a free-tier idle spin-down) would force everyone
+// logged in at that moment back to the sign-in screen, even though their
+// account/data is safely persisted. Reads stay in-memory (no DB round
+// trip on every authenticated request); only login/logout touch the DB,
+// and the cache is rehydrated from it once at boot.
+async function startWebSession(res, user) {
   const token = crypto.randomBytes(24).toString('hex');
-  webSessions.set(token, { id: user.id, username: user.username, role: user.role });
+  const entry = { id: user.id, username: user.username, role: user.role };
+  webSessions.set(token, entry);
   res.cookie(SESSION_COOKIE, token, { httpOnly: true, sameSite: 'lax', maxAge: SESSION_MAX_AGE_MS });
+
+  const db = await store.load();
+  db.webSessions = db.webSessions || [];
+  db.webSessions.push({ token, ...entry, createdAt: Date.now() });
+  await store.save(db);
+}
+
+async function endWebSession(token) {
+  webSessions.delete(token);
+  const db = await store.load();
+  db.webSessions = (db.webSessions || []).filter((s) => s.token !== token);
+  await store.save(db);
 }
 
 function requireRole(role) {
@@ -185,7 +205,7 @@ app.post('/api/auth/register', async (req, res) => {
   db.users.push(user);
   await store.save(db);
 
-  startWebSession(res, user);
+  await startWebSession(res, user);
   res.status(201).json({ ok: true, user: publicUser(user) });
 });
 
@@ -266,13 +286,13 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(401).json({ error: 'Incorrect username or password.' });
   }
   recordLoginSuccess(rateLimitKey);
-  startWebSession(res, user);
+  await startWebSession(res, user);
   res.json({ ok: true, user: publicUser(user) });
 });
 
-app.post('/api/auth/logout', (req, res) => {
+app.post('/api/auth/logout', async (req, res) => {
   const token = parseCookies(req)[SESSION_COOKIE];
-  if (token) webSessions.delete(token);
+  if (token) await endWebSession(token);
   res.clearCookie(SESSION_COOKIE);
   res.json({ ok: true });
 });
@@ -357,7 +377,7 @@ if (GOOGLE_ENABLED) {
         await store.save(db);
       }
 
-      startWebSession(res, user);
+      await startWebSession(res, user);
       res.redirect(user.role === 'singer' ? '/singer' : '/player');
     } catch (err) {
       console.error('Google OAuth error:', err.message);
@@ -676,6 +696,19 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`StageCue running at http://localhost:${PORT}`);
-});
+// Rehydrate the in-memory session cache from storage before accepting
+// traffic, so a restart (deploy, crash, free-tier idle spin-down) doesn't
+// force everyone who was logged in back to the sign-in screen.
+store.load()
+  .then((db) => {
+    (db.webSessions || []).forEach((s) => {
+      webSessions.set(s.token, { id: s.id, username: s.username, role: s.role });
+    });
+    console.log(`Rehydrated ${webSessions.size} session(s) from storage.`);
+  })
+  .catch((err) => console.error('Failed to rehydrate sessions on boot:', err.message))
+  .finally(() => {
+    server.listen(PORT, () => {
+      console.log(`StageCue running at http://localhost:${PORT}`);
+    });
+  });
