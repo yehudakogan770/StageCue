@@ -31,9 +31,8 @@
 
   function findSong(id) { return songs.find((s) => s.id === id); }
 
-  function songMetaLine(song) {
+  function songKeyBpmLine(song) {
     const parts = [];
-    if (song.artist) parts.push(song.artist);
     if (song.key) parts.push(`Key: ${song.key}`);
     if (song.bpm) parts.push(`${song.bpm} BPM`);
     return parts.join(' · ');
@@ -1115,11 +1114,37 @@
       songLibraryList.innerHTML = '<li class="muted">No songs match your search.</li>';
       return;
     }
-    filtered.forEach((song) => {
+
+    // Organized by artist: grouped under a heading and sorted alphabetically,
+    // with songs missing an artist grouped last. Purely a display order -
+    // the underlying songs array (and anything derived from it, like
+    // playlist checklists) stays in creation order.
+    const sorted = filtered.slice().sort((a, b) => {
+      const artistA = (a.artist || '').trim();
+      const artistB = (b.artist || '').trim();
+      if (!artistA && artistB) return 1;
+      if (artistA && !artistB) return -1;
+      const artistCompare = artistA.toLowerCase().localeCompare(artistB.toLowerCase());
+      if (artistCompare !== 0) return artistCompare;
+      return a.title.toLowerCase().localeCompare(b.title.toLowerCase());
+    });
+
+    let lastArtistKey = null;
+    sorted.forEach((song) => {
+      const artistLabel = (song.artist || '').trim() || 'No Artist';
+      const artistKey = artistLabel.toLowerCase();
+      if (artistKey !== lastArtistKey) {
+        const header = document.createElement('li');
+        header.className = 'library-group-header';
+        header.textContent = artistLabel;
+        songLibraryList.appendChild(header);
+        lastArtistKey = artistKey;
+      }
+
       const li = document.createElement('li');
       li.className = 'entity-item';
       li.innerHTML = `
-        <div class="info"><strong>${escapeHtml(song.title)}</strong><span>${escapeHtml(songMetaLine(song))}</span></div>
+        <div class="info"><strong>${escapeHtml(song.title)}</strong><span>${escapeHtml(songKeyBpmLine(song))}</span></div>
         <div class="actions">
           <button class="btn btn-small" data-act="add">Queue</button>
           <button class="btn btn-small" data-act="edit">Edit</button>
