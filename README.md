@@ -183,3 +183,7 @@ as the Google button above.
   disconnected right away and told the session ended. An accidental drop
   (network blip, tab backgrounded) instead gives the player about 45 seconds
   to reconnect before the session actually ends.
+
+## License
+
+[MIT](./LICENSE)
