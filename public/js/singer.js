@@ -24,6 +24,11 @@
   const closeQueueBtn = document.getElementById('closeQueueBtn');
   const queueModal = document.getElementById('queueModal');
   const singerQueueList = document.getElementById('singerQueueList');
+  const singerSongSearchInput = document.getElementById('singerSongSearchInput');
+  const singerSongLibraryList = document.getElementById('singerSongLibraryList');
+  let queuedSongIds = new Set();
+  let libraryData = [];
+  let librarySearchQuery = '';
 
   const singerToggleAuthBtn = document.getElementById('singerToggleAuthBtn');
   const singerGoogleLoginBtn = document.getElementById('singerGoogleLoginBtn');
@@ -409,12 +414,15 @@
     }
 
     renderSingerQueue(state.queue);
+    libraryData = state.library || [];
+    renderSingerLibrary();
   }
 
   // The player stays the source of truth - these buttons just ask it to
-  // jump/reorder, and the resulting state:update is what actually updates
-  // this list (including for every other singer watching the same show).
+  // jump/reorder/add/remove, and the resulting state:update is what actually
+  // updates this list (including for every other singer watching the show).
   function renderSingerQueue(queueData) {
+    queuedSongIds = new Set((queueData || []).map((item) => item.id));
     singerQueueList.innerHTML = '';
     if (!queueData || queueData.length === 0) {
       singerQueueList.innerHTML = '<li class="muted">Queue is empty.</li>';
@@ -428,13 +436,44 @@
         <div class="actions">
           ${idx > 0 ? '<button class="btn btn-small" data-act="top">Top</button>' : ''}
           <button class="btn btn-small btn-primary" data-act="jump">Play</button>
+          <button class="btn btn-small btn-danger" data-act="remove">&times;</button>
         </div>`;
       const topBtn = li.querySelector('[data-act="top"]');
       if (topBtn) topBtn.addEventListener('click', () => socket.emit('singer:queueMoveTop', item.id));
       li.querySelector('[data-act="jump"]').addEventListener('click', () => socket.emit('singer:queueJump', item.id));
+      li.querySelector('[data-act="remove"]').addEventListener('click', () => socket.emit('singer:queueRemove', item.id));
       singerQueueList.appendChild(li);
     });
   }
+
+  function renderSingerLibrary() {
+    singerSongLibraryList.innerHTML = '';
+    const filtered = librarySearchQuery
+      ? libraryData.filter((s) => s.title.toLowerCase().includes(librarySearchQuery) || (s.artist || '').toLowerCase().includes(librarySearchQuery))
+      : libraryData;
+    if (filtered.length === 0) {
+      singerSongLibraryList.innerHTML = `<li class="muted">${libraryData.length === 0 ? 'No songs in the library yet.' : 'No songs match your search.'}</li>`;
+      return;
+    }
+    filtered.forEach((song) => {
+      const inQueue = queuedSongIds.has(song.id);
+      const li = document.createElement('li');
+      li.className = 'entity-item';
+      li.innerHTML = `
+        <div class="info"><strong>${escapeHtml(song.title)}</strong><span>${escapeHtml(song.artist || '')}</span></div>
+        <div class="actions">
+          <button class="btn btn-small" data-act="add" ${inQueue ? 'disabled' : ''}>${inQueue ? 'In Queue' : 'Add'}</button>
+        </div>`;
+      const addBtn = li.querySelector('[data-act="add"]');
+      if (!inQueue) addBtn.addEventListener('click', () => socket.emit('singer:queueAdd', song.id));
+      singerSongLibraryList.appendChild(li);
+    });
+  }
+
+  singerSongSearchInput.addEventListener('input', () => {
+    librarySearchQuery = singerSongSearchInput.value.trim().toLowerCase();
+    renderSingerLibrary();
+  });
 
   openQueueBtn.addEventListener('click', () => queueModal.classList.remove('hidden'));
   closeQueueBtn.addEventListener('click', () => queueModal.classList.add('hidden'));

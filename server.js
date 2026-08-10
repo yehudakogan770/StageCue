@@ -585,6 +585,7 @@ function defaultState() {
     song: null, // { title, artist, lines: [] }
     highlightLine: -1,
     queue: [], // [{ id, title, artist, current }] - kept in sync by the player
+    library: [], // [{ id, title, artist }] - the full song library, for the singer to add from
   };
 }
 
@@ -690,6 +691,20 @@ io.on('connection', (socket) => {
     const session = sessions.get(socket.data.code);
     if (!session) return;
     io.to(session.playerSocketId).emit('singer:queueMoveTop', songId);
+  });
+
+  socket.on('singer:queueAdd', (songId) => {
+    if (socket.data.role !== 'singer' || !socket.data.code) return;
+    const session = sessions.get(socket.data.code);
+    if (!session) return;
+    io.to(session.playerSocketId).emit('singer:queueAdd', songId);
+  });
+
+  socket.on('singer:queueRemove', (songId) => {
+    if (socket.data.role !== 'singer' || !socket.data.code) return;
+    const session = sessions.get(socket.data.code);
+    if (!session) return;
+    io.to(session.playerSocketId).emit('singer:queueRemove', songId);
   });
 
   socket.on('disconnect', () => {

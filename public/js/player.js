@@ -378,7 +378,7 @@
     renderCurrentMessage();
     renderPresetGrid();
     updateSessionInfoFade();
-    pushUpdate({ queue: queuePayload() });
+    pushUpdate({ queue: queuePayload(), library: libraryPayload() });
   }
 
   // Shows a fade at the right edge of the topbar's pill row whenever it's
@@ -549,6 +549,17 @@
     const idx = queue.indexOf(songId);
     if (idx <= 0) return;
     moveQueueItemToTop(idx);
+  });
+
+  socket.on('singer:queueAdd', (songId) => {
+    if (!findSong(songId)) return;
+    addToQueue(songId);
+  });
+
+  socket.on('singer:queueRemove', (songId) => {
+    const idx = queue.indexOf(songId);
+    if (idx < 0) return;
+    removeFromQueue(idx);
   });
 
   socket.on('singer:reaction', ({ text, at }) => {
@@ -797,6 +808,16 @@
       return { id: song.id, title: song.title, artist: song.artist || '', current: idx === currentIndex };
     }).filter(Boolean);
   }
+
+  // Lets the singer browse the whole library (not just what's already
+  // queued) so they can build the queue themselves, not only reorder it.
+  function libraryPayload() {
+    return songs.map((s) => ({ id: s.id, title: s.title, artist: s.artist || '' }));
+  }
+  function syncLibraryToSinger() {
+    if (sessionCode) pushUpdate({ library: libraryPayload() });
+  }
+
   function restoreQueue() {
     try {
       const q = JSON.parse(localStorage.getItem(`stagecue_queue_${currentEventId}`) || '[]');
@@ -1151,6 +1172,7 @@
     renderSongLibraryList();
     renderPlaylistSongChecks();
     renderQueue();
+    syncLibraryToSinger();
   });
 
   songCancelBtn.addEventListener('click', resetSongForm);
@@ -1253,11 +1275,13 @@
           renderSongLibraryList();
           renderPlaylistSongChecks();
           renderQueue();
+          syncLibraryToSinger();
           showUndoToast(`Deleted "${song.title}".`, async () => {
             const restored = await apiPost(`/api/songs/${song.id}/restore`, {});
             songs.push(restored);
             renderSongLibraryList();
             renderPlaylistSongChecks();
+            syncLibraryToSinger();
           });
         });
         ul.appendChild(li);
