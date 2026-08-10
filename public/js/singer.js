@@ -26,9 +26,12 @@
   const singerQueueList = document.getElementById('singerQueueList');
   const singerSongSearchInput = document.getElementById('singerSongSearchInput');
   const singerSongLibraryList = document.getElementById('singerSongLibraryList');
+  const addSongSection = document.getElementById('addSongSection');
+  const addSongDisabledMsg = document.getElementById('addSongDisabledMsg');
   let queuedSongIds = new Set();
   let libraryData = [];
   let librarySearchQuery = '';
+  let libraryEnabled = true;
 
   const singerToggleAuthBtn = document.getElementById('singerToggleAuthBtn');
   const singerGoogleLoginBtn = document.getElementById('singerGoogleLoginBtn');
@@ -414,6 +417,7 @@
     }
 
     renderSingerQueue(state.queue);
+    libraryEnabled = state.libraryEnabled !== false;
     libraryData = state.library || [];
     renderSingerLibrary();
   }
@@ -447,6 +451,10 @@
   }
 
   function renderSingerLibrary() {
+    addSongSection.classList.toggle('hidden', !libraryEnabled);
+    addSongDisabledMsg.classList.toggle('hidden', libraryEnabled);
+    if (!libraryEnabled) return;
+
     singerSongLibraryList.innerHTML = '';
     const filtered = librarySearchQuery
       ? libraryData.filter((s) => s.title.toLowerCase().includes(librarySearchQuery) || (s.artist || '').toLowerCase().includes(librarySearchQuery))

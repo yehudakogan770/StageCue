@@ -11,6 +11,7 @@
   let currentUser = null;
   let currentEventId = null;
   let currentEventName = null;
+  let allowSingerLibrary = true;
 
   // song and message are independent - either, both, or neither can be showing at once.
   let liveState = { message: '', song: null, highlightLine: -1 };
@@ -378,7 +379,7 @@
     renderCurrentMessage();
     renderPresetGrid();
     updateSessionInfoFade();
-    pushUpdate({ queue: queuePayload(), library: libraryPayload() });
+    pushUpdate({ queue: queuePayload(), library: allowSingerLibrary ? libraryPayload() : [], libraryEnabled: allowSingerLibrary });
   }
 
   // Shows a fade at the right edge of the topbar's pill row whenever it's
@@ -552,7 +553,7 @@
   });
 
   socket.on('singer:queueAdd', (songId) => {
-    if (!findSong(songId)) return;
+    if (!allowSingerLibrary || !findSong(songId)) return;
     addToQueue(songId);
   });
 
@@ -810,13 +811,21 @@
   }
 
   // Lets the singer browse the whole library (not just what's already
-  // queued) so they can build the queue themselves, not only reorder it.
+  // queued) so they can build the queue themselves, not only reorder it -
+  // but only when the player has opted in via allowSingerLibraryToggle.
   function libraryPayload() {
     return songs.map((s) => ({ id: s.id, title: s.title, artist: s.artist || '' }));
   }
   function syncLibraryToSinger() {
-    if (sessionCode) pushUpdate({ library: libraryPayload() });
+    if (sessionCode) pushUpdate({ library: allowSingerLibrary ? libraryPayload() : [], libraryEnabled: allowSingerLibrary });
   }
+
+  const allowSingerLibraryToggle = document.getElementById('allowSingerLibraryToggle');
+  allowSingerLibraryToggle.addEventListener('change', () => {
+    allowSingerLibrary = allowSingerLibraryToggle.checked;
+    localStorage.setItem(`stagecue_allowSingerLibrary_${currentEventId}`, String(allowSingerLibrary));
+    syncLibraryToSinger();
+  });
 
   function restoreQueue() {
     try {
@@ -828,6 +837,9 @@
       queue = [];
       currentIndex = -1;
     }
+    const savedAllow = localStorage.getItem(`stagecue_allowSingerLibrary_${currentEventId}`);
+    allowSingerLibrary = savedAllow === null ? true : savedAllow === 'true';
+    allowSingerLibraryToggle.checked = allowSingerLibrary;
   }
 
   function renderQueue() {
