@@ -3,6 +3,10 @@
 
   const REPLIES = ["Got it", "Repeat please", "Can't hear you", "Slower please", "Louder please", "One more minute"];
 
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
   const joinScreen = document.getElementById('joinScreen');
   const liveScreen = document.getElementById('liveScreen');
   const joinForm = document.getElementById('joinForm');
@@ -16,6 +20,10 @@
   const flashOverlay = document.getElementById('flashOverlay');
   const singerFontUpBtn = document.getElementById('singerFontUpBtn');
   const singerFontDownBtn = document.getElementById('singerFontDownBtn');
+  const openQueueBtn = document.getElementById('openQueueBtn');
+  const closeQueueBtn = document.getElementById('closeQueueBtn');
+  const queueModal = document.getElementById('queueModal');
+  const singerQueueList = document.getElementById('singerQueueList');
 
   const singerToggleAuthBtn = document.getElementById('singerToggleAuthBtn');
   const singerGoogleLoginBtn = document.getElementById('singerGoogleLoginBtn');
@@ -120,7 +128,7 @@
     customReplies.forEach((r) => {
       const li = document.createElement('li');
       li.className = 'entity-item';
-      li.innerHTML = `<div class="info"><strong>${r.text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))}</strong></div>
+      li.innerHTML = `<div class="info"><strong>${escapeHtml(r.text)}</strong></div>
         <div class="actions"><button class="btn btn-small btn-danger" data-act="del">Del</button></div>`;
       li.querySelector('[data-act="del"]').addEventListener('click', async () => {
         await apiCall(`/api/singer/replies/${r.id}`, { method: 'DELETE' });
@@ -399,5 +407,35 @@
       p.textContent = 'Waiting for the keyboard player...';
       display.appendChild(p);
     }
+
+    renderSingerQueue(state.queue);
   }
+
+  // The player stays the source of truth - these buttons just ask it to
+  // jump/reorder, and the resulting state:update is what actually updates
+  // this list (including for every other singer watching the same show).
+  function renderSingerQueue(queueData) {
+    singerQueueList.innerHTML = '';
+    if (!queueData || queueData.length === 0) {
+      singerQueueList.innerHTML = '<li class="muted">Queue is empty.</li>';
+      return;
+    }
+    queueData.forEach((item, idx) => {
+      const li = document.createElement('li');
+      li.className = 'entity-item queue-item' + (item.current ? ' current' : '');
+      li.innerHTML = `
+        <div class="info"><strong>${idx + 1}. ${escapeHtml(item.title)}</strong><span>${escapeHtml(item.artist || '')}</span></div>
+        <div class="actions">
+          ${idx > 0 ? '<button class="btn btn-small" data-act="top">Top</button>' : ''}
+          <button class="btn btn-small btn-primary" data-act="jump">Play</button>
+        </div>`;
+      const topBtn = li.querySelector('[data-act="top"]');
+      if (topBtn) topBtn.addEventListener('click', () => socket.emit('singer:queueMoveTop', item.id));
+      li.querySelector('[data-act="jump"]').addEventListener('click', () => socket.emit('singer:queueJump', item.id));
+      singerQueueList.appendChild(li);
+    });
+  }
+
+  openQueueBtn.addEventListener('click', () => queueModal.classList.remove('hidden'));
+  closeQueueBtn.addEventListener('click', () => queueModal.classList.add('hidden'));
 })();

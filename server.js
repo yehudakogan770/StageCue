@@ -584,6 +584,7 @@ function defaultState() {
     message: '',
     song: null, // { title, artist, lines: [] }
     highlightLine: -1,
+    queue: [], // [{ id, title, artist, current }] - kept in sync by the player
   };
 }
 
@@ -672,6 +673,23 @@ io.on('connection', (socket) => {
     const session = sessions.get(socket.data.code);
     if (!session) return;
     io.to(session.playerSocketId).emit('singer:reaction', { text, at: Date.now() });
+  });
+
+  // The singer never mutates the queue directly - the player stays the
+  // single source of truth. These just relay the request, and the player's
+  // resulting state:update is what actually moves the singer's own queue view.
+  socket.on('singer:queueJump', (songId) => {
+    if (socket.data.role !== 'singer' || !socket.data.code) return;
+    const session = sessions.get(socket.data.code);
+    if (!session) return;
+    io.to(session.playerSocketId).emit('singer:queueJump', songId);
+  });
+
+  socket.on('singer:queueMoveTop', (songId) => {
+    if (socket.data.role !== 'singer' || !socket.data.code) return;
+    const session = sessions.get(socket.data.code);
+    if (!session) return;
+    io.to(session.playerSocketId).emit('singer:queueMoveTop', songId);
   });
 
   socket.on('disconnect', () => {

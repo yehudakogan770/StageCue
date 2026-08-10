@@ -378,6 +378,7 @@
     renderCurrentMessage();
     renderPresetGrid();
     updateSessionInfoFade();
+    pushUpdate({ queue: queuePayload() });
   }
 
   // Shows a fade at the right edge of the topbar's pill row whenever it's
@@ -533,6 +534,21 @@
       dot.classList.remove('online');
       singerStatus.lastChild.textContent = ' Singer not connected';
     }
+  });
+
+  // The singer only ever requests these - the player applies them locally
+  // (same code path as its own buttons) and the resulting persistQueue()
+  // call re-broadcasts the updated queue back out to everyone.
+  socket.on('singer:queueJump', (songId) => {
+    const idx = queue.indexOf(songId);
+    if (idx < 0) return;
+    sendSongToSinger(idx);
+  });
+
+  socket.on('singer:queueMoveTop', (songId) => {
+    const idx = queue.indexOf(songId);
+    if (idx <= 0) return;
+    moveQueueItemToTop(idx);
   });
 
   socket.on('singer:reaction', ({ text, at }) => {
@@ -769,6 +785,17 @@
   function persistQueue() {
     localStorage.setItem(`stagecue_queue_${currentEventId}`, JSON.stringify(queue));
     localStorage.setItem(`stagecue_currentIndex_${currentEventId}`, String(currentIndex));
+    if (sessionCode) pushUpdate({ queue: queuePayload() });
+  }
+
+  // Lightweight shape for the singer's queue view - it only ever sees
+  // titles/artists, never the full song library.
+  function queuePayload() {
+    return queue.map((songId, idx) => {
+      const song = findSong(songId);
+      if (!song) return null;
+      return { id: song.id, title: song.title, artist: song.artist || '', current: idx === currentIndex };
+    }).filter(Boolean);
   }
   function restoreQueue() {
     try {
@@ -798,11 +825,14 @@
           </span>
           <div class="info"><strong>${idx + 1}. ${escapeHtml(song.title)}</strong><span>${escapeHtml(song.artist || '')}</span></div>
           <div class="actions">
+            ${idx > 0 ? '<button class="btn btn-small" data-act="top" title="Move to top of queue">Top</button>' : ''}
             <button class="btn btn-small" data-act="up">&uarr;</button>
             <button class="btn btn-small" data-act="down">&darr;</button>
             <button class="btn btn-small btn-primary" data-act="send">Send</button>
             <button class="btn btn-small btn-danger" data-act="remove">&times;</button>
           </div>`;
+        const topBtn = li.querySelector('[data-act="top"]');
+        if (topBtn) topBtn.addEventListener('click', () => moveQueueItemToTop(idx));
         li.querySelector('[data-act="up"]').addEventListener('click', () => moveQueueItem(idx, -1));
         li.querySelector('[data-act="down"]').addEventListener('click', () => moveQueueItem(idx, 1));
         li.querySelector('[data-act="send"]').addEventListener('click', () => sendSongToSinger(idx));
@@ -872,6 +902,19 @@
     [queue[idx], queue[target]] = [queue[target], queue[idx]];
     if (currentIndex === idx) currentIndex = target;
     else if (currentIndex === target) currentIndex = idx;
+    persistQueue();
+    renderQueue();
+  }
+
+  // Promotes a song straight to position 0. Whatever plays after it just
+  // continues down the (now-shifted) queue as normal - no special-casing
+  // needed beyond keeping currentIndex pointed at the right song.
+  function moveQueueItemToTop(idx) {
+    if (idx <= 0 || idx >= queue.length) return;
+    const [moved] = queue.splice(idx, 1);
+    queue.unshift(moved);
+    if (currentIndex === idx) currentIndex = 0;
+    else if (currentIndex >= 0 && currentIndex < idx) currentIndex += 1;
     persistQueue();
     renderQueue();
   }

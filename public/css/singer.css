@@ -30,6 +30,35 @@
   overflow: hidden;
 }
 
+.qr-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 20px;
+}
+.qr-modal-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 24px;
+  max-width: 320px;
+  width: 100%;
+  text-align: center;
+}
+.queue-modal-card { max-width: 380px; text-align: left; }
+.queue-modal-list {
+  max-height: 50vh;
+  overflow-y: auto;
+  margin: 14px 0;
+}
+.queue-modal-list .queue-item.current { border-color: var(--accent); }
+.queue-modal-list .actions { display: flex; gap: 6px; }
+
 /* A one-off attention cue from the player ("look at your screen") - pulses
    the whole viewport briefly, then disappears on its own. Never left
    visible: the base rule is opacity 0, the animation only runs while the

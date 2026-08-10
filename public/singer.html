@@ -93,6 +93,7 @@
     <div class="top-strip">
       <span id="connStatus" class="status-pill"><span class="status-dot online"></span> Connected</span>
       <div class="top-strip-actions">
+        <button id="openQueueBtn" class="btn btn-small">Queue</button>
         <button id="singerFontDownBtn" class="btn btn-small">A-</button>
         <button id="singerFontUpBtn" class="btn btn-small">A+</button>
         <button id="leaveBtn" class="btn btn-small">Leave</button>
@@ -107,6 +108,16 @@
 
     <div class="reply-bar-wrap" id="replyBarWrap">
       <div class="reply-bar" id="replyBar"></div>
+    </div>
+  </div>
+
+  <!-- Queue modal: lets the singer see what's coming up and jump to a song
+       or bump one to the top, without disturbing the fixed live-screen shell. -->
+  <div id="queueModal" class="qr-modal hidden">
+    <div class="qr-modal-card queue-modal-card">
+      <h3>Queue</h3>
+      <ul id="singerQueueList" class="entity-list queue-modal-list"></ul>
+      <button id="closeQueueBtn" class="btn btn-small">Close</button>
     </div>
   </div>
 
