@@ -11,6 +11,8 @@
   let currentUser = null;
   let currentEventId = null;
   let currentEventName = null;
+  let allowSingerLibrary = true;
+  let singerLibrarySongs = []; // songs the connected singer shared, if any
 
   // song and message are independent - either, both, or neither can be showing at once.
   let liveState = { message: '', song: null, highlightLine: -1 };
@@ -29,7 +31,10 @@
     return (await fetch(url, { method: 'DELETE', credentials: 'same-origin' })).json();
   }
 
-  function findSong(id) { return songs.find((s) => s.id === id); }
+  // Queue items can come from either the player's own library or a song the
+  // singer shared - both resolve through here so the rest of the queue code
+  // (sendSongToSinger, findSong-based lookups, etc.) doesn't need to care.
+  function findSong(id) { return songs.find((s) => s.id === id) || singerLibrarySongs.find((s) => s.id === id); }
 
   function songKeyBpmLine(song) {
     const parts = [];
@@ -112,6 +117,10 @@
   const qrImageWrap = document.getElementById('qrImageWrap');
   const qrCodeText = document.getElementById('qrCodeText');
   const closeQrBtn = document.getElementById('closeQrBtn');
+  const openSingerLibraryBtn = document.getElementById('openSingerLibraryBtn');
+  const closeSingerLibraryBtn = document.getElementById('closeSingerLibraryBtn');
+  const singerLibraryModal = document.getElementById('singerLibraryModal');
+  const singerLibraryPlayerList = document.getElementById('singerLibraryPlayerList');
   const singerStatus = document.getElementById('singerStatus');
   const playerConnStatus = document.getElementById('playerConnStatus');
   const endSessionBtn = document.getElementById('endSessionBtn');
@@ -378,6 +387,8 @@
     renderCurrentMessage();
     renderPresetGrid();
     updateSessionInfoFade();
+    pushUpdate({ queue: queuePayload(), library: allowSingerLibrary ? libraryPayload() : [], libraryEnabled: allowSingerLibrary });
+    socket.emit('player:requestLibrarySync');
   }
 
   // Shows a fade at the right edge of the topbar's pill row whenever it's
@@ -533,6 +544,77 @@
       dot.classList.remove('online');
       singerStatus.lastChild.textContent = ' Singer not connected';
     }
+  });
+
+  // The singer only ever requests these - the player applies them locally
+  // (same code path as its own buttons) and the resulting persistQueue()
+  // call re-broadcasts the updated queue back out to everyone.
+  socket.on('singer:queueJump', (songId) => {
+    const idx = queue.indexOf(songId);
+    if (idx < 0) return;
+    sendSongToSinger(idx);
+  });
+
+  socket.on('singer:queueMoveTop', (songId) => {
+    const idx = queue.indexOf(songId);
+    if (idx <= 0) return;
+    moveQueueItemToTop(idx);
+  });
+
+  socket.on('singer:queueAdd', (songId) => {
+    if (!allowSingerLibrary || !findSong(songId)) return;
+    addToQueue(songId);
+  });
+
+  socket.on('singer:queueRemove', (songId) => {
+    const idx = queue.indexOf(songId);
+    if (idx < 0) return;
+    removeFromQueue(idx);
+  });
+
+  // The singer's own shared library - it lives only in this socket
+  // connection's memory (not session.state), so a page reload asks for a
+  // fresh copy via player:requestLibrarySync in enterSession().
+  socket.on('singer:librarySync', (sharedSongs) => {
+    singerLibrarySongs = Array.isArray(sharedSongs) ? sharedSongs : [];
+    renderSingerLibraryPlayerList();
+  });
+
+  function renderSingerLibraryPlayerList() {
+    openSingerLibraryBtn.classList.toggle('hidden', singerLibrarySongs.length === 0);
+    singerLibraryPlayerList.innerHTML = '';
+    if (singerLibrarySongs.length === 0) {
+      singerLibraryPlayerList.innerHTML = '<li class="muted">The singer hasn\'t shared any songs.</li>';
+      return;
+    }
+    singerLibrarySongs.forEach((song) => {
+      const inQueue = queue.includes(song.id);
+      const li = document.createElement('li');
+      li.className = 'entity-item';
+      li.innerHTML = `
+        <div class="info"><strong>${escapeHtml(song.title)}</strong><span>${escapeHtml(songKeyBpmLine(song))}${song.artist ? ` · ${escapeHtml(song.artist)}` : ''}</span></div>
+        <div class="actions">
+          <button class="btn btn-small" data-act="add" ${inQueue ? 'disabled' : ''}>${inQueue ? 'In Queue' : 'Queue'}</button>
+        </div>`;
+      const addBtn = li.querySelector('[data-act="add"]');
+      if (!inQueue) addBtn.addEventListener('click', () => { addToQueue(song.id); renderSingerLibraryPlayerList(); });
+      singerLibraryPlayerList.appendChild(li);
+    });
+  }
+
+  openSingerLibraryBtn.addEventListener('click', () => singerLibraryModal.classList.remove('hidden'));
+  closeSingerLibraryBtn.addEventListener('click', () => singerLibraryModal.classList.add('hidden'));
+
+  socket.on('singer:suggestion', ({ title, artist, at }) => {
+    if (reactionsFeed.dataset.empty === 'true') {
+      reactionsFeed.innerHTML = '';
+      reactionsFeed.dataset.empty = 'false';
+    }
+    const li = document.createElement('li');
+    const time = new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    li.innerHTML = `<span>&#128161; Suggests: <strong>${escapeHtml(title)}</strong>${artist ? ` &mdash; ${escapeHtml(artist)}` : ''}</span><span class="time">${time}</span>`;
+    reactionsFeed.prepend(li);
+    while (reactionsFeed.children.length > 25) reactionsFeed.removeChild(reactionsFeed.lastChild);
   });
 
   socket.on('singer:reaction', ({ text, at }) => {
@@ -769,7 +851,36 @@
   function persistQueue() {
     localStorage.setItem(`stagecue_queue_${currentEventId}`, JSON.stringify(queue));
     localStorage.setItem(`stagecue_currentIndex_${currentEventId}`, String(currentIndex));
+    if (sessionCode) pushUpdate({ queue: queuePayload() });
   }
+
+  // Lightweight shape for the singer's queue view - it only ever sees
+  // titles/artists, never the full song library.
+  function queuePayload() {
+    return queue.map((songId, idx) => {
+      const song = findSong(songId);
+      if (!song) return null;
+      return { id: song.id, title: song.title, artist: song.artist || '', current: idx === currentIndex };
+    }).filter(Boolean);
+  }
+
+  // Lets the singer browse the whole library (not just what's already
+  // queued) so they can build the queue themselves, not only reorder it -
+  // but only when the player has opted in via allowSingerLibraryToggle.
+  function libraryPayload() {
+    return songs.map((s) => ({ id: s.id, title: s.title, artist: s.artist || '' }));
+  }
+  function syncLibraryToSinger() {
+    if (sessionCode) pushUpdate({ library: allowSingerLibrary ? libraryPayload() : [], libraryEnabled: allowSingerLibrary });
+  }
+
+  const allowSingerLibraryToggle = document.getElementById('allowSingerLibraryToggle');
+  allowSingerLibraryToggle.addEventListener('change', () => {
+    allowSingerLibrary = allowSingerLibraryToggle.checked;
+    localStorage.setItem(`stagecue_allowSingerLibrary_${currentEventId}`, String(allowSingerLibrary));
+    syncLibraryToSinger();
+  });
+
   function restoreQueue() {
     try {
       const q = JSON.parse(localStorage.getItem(`stagecue_queue_${currentEventId}`) || '[]');
@@ -780,6 +891,9 @@
       queue = [];
       currentIndex = -1;
     }
+    const savedAllow = localStorage.getItem(`stagecue_allowSingerLibrary_${currentEventId}`);
+    allowSingerLibrary = savedAllow === null ? true : savedAllow === 'true';
+    allowSingerLibraryToggle.checked = allowSingerLibrary;
   }
 
   function renderQueue() {
@@ -798,11 +912,14 @@
           </span>
           <div class="info"><strong>${idx + 1}. ${escapeHtml(song.title)}</strong><span>${escapeHtml(song.artist || '')}</span></div>
           <div class="actions">
+            ${idx > 0 ? '<button class="btn btn-small" data-act="top" title="Move to top of queue">Top</button>' : ''}
             <button class="btn btn-small" data-act="up">&uarr;</button>
             <button class="btn btn-small" data-act="down">&darr;</button>
             <button class="btn btn-small btn-primary" data-act="send">Send</button>
             <button class="btn btn-small btn-danger" data-act="remove">&times;</button>
           </div>`;
+        const topBtn = li.querySelector('[data-act="top"]');
+        if (topBtn) topBtn.addEventListener('click', () => moveQueueItemToTop(idx));
         li.querySelector('[data-act="up"]').addEventListener('click', () => moveQueueItem(idx, -1));
         li.querySelector('[data-act="down"]').addEventListener('click', () => moveQueueItem(idx, 1));
         li.querySelector('[data-act="send"]').addEventListener('click', () => sendSongToSinger(idx));
@@ -872,6 +989,19 @@
     [queue[idx], queue[target]] = [queue[target], queue[idx]];
     if (currentIndex === idx) currentIndex = target;
     else if (currentIndex === target) currentIndex = idx;
+    persistQueue();
+    renderQueue();
+  }
+
+  // Promotes a song straight to position 0. Whatever plays after it just
+  // continues down the (now-shifted) queue as normal - no special-casing
+  // needed beyond keeping currentIndex pointed at the right song.
+  function moveQueueItemToTop(idx) {
+    if (idx <= 0 || idx >= queue.length) return;
+    const [moved] = queue.splice(idx, 1);
+    queue.unshift(moved);
+    if (currentIndex === idx) currentIndex = 0;
+    else if (currentIndex >= 0 && currentIndex < idx) currentIndex += 1;
     persistQueue();
     renderQueue();
   }
@@ -1108,6 +1238,7 @@
     renderSongLibraryList();
     renderPlaylistSongChecks();
     renderQueue();
+    syncLibraryToSinger();
   });
 
   songCancelBtn.addEventListener('click', resetSongForm);
@@ -1210,11 +1341,13 @@
           renderSongLibraryList();
           renderPlaylistSongChecks();
           renderQueue();
+          syncLibraryToSinger();
           showUndoToast(`Deleted "${song.title}".`, async () => {
             const restored = await apiPost(`/api/songs/${song.id}/restore`, {});
             songs.push(restored);
             renderSongLibraryList();
             renderPlaylistSongChecks();
+            syncLibraryToSinger();
           });
         });
         ul.appendChild(li);
