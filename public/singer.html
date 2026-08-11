@@ -79,6 +79,31 @@
           <input id="newReplyText" placeholder="New quick reply text" maxlength="40" />
           <button type="button" id="addReplyBtn" class="btn btn-small">Add</button>
         </div>
+
+        <hr />
+        <details class="account-email-details">
+          <summary>Your own song library</summary>
+          <label class="check-item">
+            <input type="checkbox" id="shareLibraryToggle" />
+            Let the keyboard player see and use your songs
+          </label>
+          <ul id="mySongsList" class="entity-list"></ul>
+          <button type="button" id="toggleMySongFormBtn" class="btn btn-small">Add a Song</button>
+          <form id="mySongForm" class="stacked-form hidden">
+            <input type="hidden" id="mySongIdField" />
+            <input id="mySongTitle" placeholder="Title" required maxlength="200" />
+            <input id="mySongArtist" placeholder="Artist" maxlength="200" />
+            <div class="song-preset-add-row">
+              <input id="mySongKey" placeholder="Key" maxlength="20" />
+              <input id="mySongBpm" placeholder="BPM" maxlength="20" />
+            </div>
+            <textarea id="mySongLyrics" placeholder="Lyrics" rows="6"></textarea>
+            <div class="song-preset-add-row">
+              <button type="submit" class="btn btn-primary btn-small">Save Song</button>
+              <button type="button" id="mySongCancelBtn" class="btn btn-small hidden">Cancel</button>
+            </div>
+          </form>
+        </details>
       </div>
     </div>
   </div>
@@ -124,6 +149,16 @@
         <ul id="singerSongLibraryList" class="entity-list queue-modal-list"></ul>
       </div>
       <p id="addSongDisabledMsg" class="muted small-note hidden">The keyboard player hasn't turned on song browsing for this show.</p>
+
+      <hr />
+      <p class="muted small-note">Don't see it? Suggest a song to the keyboard player:</p>
+      <form id="suggestSongForm" class="stacked-form">
+        <input id="suggestSongTitle" placeholder="Song title" required maxlength="80" />
+        <input id="suggestSongArtist" placeholder="Artist (optional)" maxlength="80" />
+        <button type="submit" class="btn btn-small">Suggest</button>
+      </form>
+      <p id="suggestSongMsg" class="muted small-note hidden">Sent to the keyboard player.</p>
+
       <button id="closeQueueBtn" class="btn btn-small">Close</button>
     </div>
   </div>

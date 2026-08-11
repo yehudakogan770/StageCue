@@ -107,6 +107,9 @@
 }
 .qr-image-wrap svg { display: block; width: 100%; height: auto; }
 
+.queue-modal-card { max-width: 380px; text-align: left; max-height: 90vh; overflow-y: auto; }
+.queue-modal-list { max-height: 50vh; overflow-y: auto; margin: 14px 0; }
+
 .reaction-banner {
   display: flex;
   flex-direction: column;

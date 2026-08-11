@@ -62,6 +62,23 @@
   const newReplyText = document.getElementById('newReplyText');
   const addReplyBtn = document.getElementById('addReplyBtn');
 
+  const shareLibraryToggle = document.getElementById('shareLibraryToggle');
+  const mySongsList = document.getElementById('mySongsList');
+  const toggleMySongFormBtn = document.getElementById('toggleMySongFormBtn');
+  const mySongForm = document.getElementById('mySongForm');
+  const mySongIdField = document.getElementById('mySongIdField');
+  const mySongTitle = document.getElementById('mySongTitle');
+  const mySongArtist = document.getElementById('mySongArtist');
+  const mySongKey = document.getElementById('mySongKey');
+  const mySongBpm = document.getElementById('mySongBpm');
+  const mySongLyrics = document.getElementById('mySongLyrics');
+  const mySongCancelBtn = document.getElementById('mySongCancelBtn');
+
+  const suggestSongForm = document.getElementById('suggestSongForm');
+  const suggestSongTitle = document.getElementById('suggestSongTitle');
+  const suggestSongArtist = document.getElementById('suggestSongArtist');
+  const suggestSongMsg = document.getElementById('suggestSongMsg');
+
   const SESSION_KEY = 'stagecue_singer_code';
 
   // Text size is local to this screen only - the keyboard player has no say in
@@ -97,6 +114,8 @@
   // their own quick replies (shown alongside the fixed defaults) across sessions.
   let singerUser = null;
   let customReplies = [];
+  let mySongs = [];
+  let shareLibrary = false;
 
   async function apiCall(url, opts) {
     const res = await fetch(url, { credentials: 'same-origin', ...opts });
@@ -152,6 +171,8 @@
     singerUser = user;
     singerLoggedInAs.textContent = user.username;
     singerAccountEmailInput.value = user.email || '';
+    shareLibrary = Boolean(user.shareLibrary);
+    shareLibraryToggle.checked = shareLibrary;
     singerLoggedOutBox.classList.add('hidden');
     singerLoggedInBox.classList.remove('hidden');
   }
@@ -164,6 +185,106 @@
       renderReplyBar();
     }
   }
+
+  // ---------- Singer's own song library ----------
+  // Only relevant once actually connected to a show - pushed over the socket
+  // (not fetched by the player) so the player never gets it unless the
+  // singer is live and has opted in.
+  function syncMyLibraryToPlayer() {
+    if (liveScreen.classList.contains('hidden')) return;
+    socket.emit('singer:librarySync', shareLibrary ? mySongs : []);
+  }
+
+  async function loadMySongs() {
+    const { ok, data } = await apiCall('/api/singer/songs');
+    if (ok) {
+      mySongs = data;
+      renderMySongsList();
+      syncMyLibraryToPlayer();
+    }
+  }
+
+  function renderMySongsList() {
+    mySongsList.innerHTML = '';
+    if (mySongs.length === 0) {
+      mySongsList.innerHTML = '<li class="muted">None yet.</li>';
+      return;
+    }
+    mySongs.forEach((song) => {
+      const li = document.createElement('li');
+      li.className = 'entity-item';
+      li.innerHTML = `
+        <div class="info"><strong>${escapeHtml(song.title)}</strong><span>${escapeHtml(song.artist || '')}</span></div>
+        <div class="actions">
+          <button type="button" class="btn btn-small" data-act="edit">Edit</button>
+          <button type="button" class="btn btn-small btn-danger" data-act="del">Del</button>
+        </div>`;
+      li.querySelector('[data-act="edit"]').addEventListener('click', () => {
+        mySongIdField.value = song.id;
+        mySongTitle.value = song.title;
+        mySongArtist.value = song.artist || '';
+        mySongKey.value = song.key || '';
+        mySongBpm.value = song.bpm || '';
+        mySongLyrics.value = song.lyrics || '';
+        mySongForm.classList.remove('hidden');
+        mySongCancelBtn.classList.remove('hidden');
+      });
+      li.querySelector('[data-act="del"]').addEventListener('click', async () => {
+        if (!confirm(`Delete "${song.title}"?`)) return;
+        await apiCall(`/api/singer/songs/${song.id}`, { method: 'DELETE' });
+        mySongs = mySongs.filter((s) => s.id !== song.id);
+        renderMySongsList();
+        syncMyLibraryToPlayer();
+      });
+      mySongsList.appendChild(li);
+    });
+  }
+
+  function resetMySongForm() {
+    mySongIdField.value = '';
+    mySongForm.reset();
+    mySongForm.classList.add('hidden');
+    mySongCancelBtn.classList.add('hidden');
+  }
+
+  toggleMySongFormBtn.addEventListener('click', () => {
+    resetMySongForm();
+    mySongForm.classList.toggle('hidden');
+  });
+  mySongCancelBtn.addEventListener('click', resetMySongForm);
+
+  mySongForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const payload = { title: mySongTitle.value.trim(), artist: mySongArtist.value.trim(), key: mySongKey.value.trim(), bpm: mySongBpm.value.trim(), lyrics: mySongLyrics.value };
+    if (!payload.title) return;
+    const { ok, data } = mySongIdField.value
+      ? await apiCall(`/api/singer/songs/${mySongIdField.value}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      : await apiCall('/api/singer/songs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!ok) return;
+    const idx = mySongs.findIndex((s) => s.id === data.id);
+    if (idx >= 0) mySongs[idx] = data; else mySongs.push(data);
+    resetMySongForm();
+    renderMySongsList();
+    syncMyLibraryToPlayer();
+  });
+
+  shareLibraryToggle.addEventListener('change', async () => {
+    shareLibrary = shareLibraryToggle.checked;
+    await apiCall('/api/singer/account/share-library', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shareLibrary }),
+    });
+    syncMyLibraryToPlayer();
+  });
+
+  suggestSongForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const title = suggestSongTitle.value.trim();
+    if (!title) return;
+    socket.emit('singer:suggestSong', { title, artist: suggestSongArtist.value.trim() });
+    suggestSongForm.reset();
+    suggestSongMsg.classList.remove('hidden');
+    setTimeout(() => suggestSongMsg.classList.add('hidden'), 2500);
+  });
 
   singerToggleAuthBtn.addEventListener('click', () => singerAuthForms.classList.toggle('hidden'));
   singerShowRegisterBtn.addEventListener('click', () => {
@@ -185,6 +306,7 @@
     }
     showSingerLoggedIn(data.user);
     await loadCustomReplies();
+    await loadMySongs();
   });
 
   singerRegisterForm.addEventListener('submit', async (e) => {
@@ -201,6 +323,7 @@
     }
     showSingerLoggedIn(data.user);
     await loadCustomReplies();
+    await loadMySongs();
   });
 
   singerLogoutBtn.addEventListener('click', async () => {
@@ -260,6 +383,7 @@
     if (data.user && data.user.role === 'singer') {
       showSingerLoggedIn(data.user);
       await loadCustomReplies();
+      await loadMySongs();
     }
   })();
 
@@ -267,6 +391,7 @@
     joinScreen.classList.add('hidden');
     liveScreen.classList.remove('hidden');
     applyState(state);
+    syncMyLibraryToPlayer();
   }
 
   function joinWithCode(code, onFail) {
@@ -311,6 +436,8 @@
 
   socket.on('player:disconnected', () => playerStatusBanner.classList.remove('hidden'));
   socket.on('player:reconnected', () => playerStatusBanner.classList.add('hidden'));
+
+  socket.on('player:requestLibrarySync', () => syncMyLibraryToPlayer());
 
   socket.on('singer:flash', () => {
     flashOverlay.classList.remove('flashing');

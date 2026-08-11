@@ -131,7 +131,7 @@ function requireRole(role) {
 }
 
 function publicUser(user) {
-  return { username: user.username, role: user.role, email: user.email || null };
+  return { username: user.username, role: user.role, email: user.email || null, shareLibrary: Boolean(user.shareLibrary) };
 }
 
 function requireAuth() {
@@ -201,7 +201,7 @@ app.post('/api/auth/register', async (req, res) => {
 
   const user = { id: store.newId('user'), username, passwordHash: hashPassword(password), role };
   if (email) user.email = email;
-  if (role === 'singer') user.replies = [];
+  if (role === 'singer') { user.replies = []; user.songs = []; user.shareLibrary = false; }
   db.users.push(user);
   await store.save(db);
 
@@ -297,8 +297,17 @@ app.post('/api/auth/logout', async (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/auth/me', (req, res) => {
-  const user = getSessionUser(req);
+app.get('/api/auth/me', async (req, res) => {
+  // getSessionUser is a trimmed {id, username, role} cache entry (kept
+  // small so every authenticated request avoids a DB round trip) - it's
+  // not enough to answer "what's this account's current data", so this
+  // endpoint (called once per page load, not on the hot path) looks the
+  // full record up fresh instead of passing the cache entry to publicUser
+  // directly, which would silently report email/shareLibrary as always empty.
+  const sessionUser = getSessionUser(req);
+  if (!sessionUser) return res.json({ user: null });
+  const db = await store.load();
+  const user = db.users.find((u) => u.id === sessionUser.id);
   res.json({ user: user ? publicUser(user) : null });
 });
 
@@ -412,6 +421,67 @@ app.delete('/api/singer/replies/:id', requireRole('singer'), async (req, res) =>
   user.replies = (user.replies || []).filter((r) => r.id !== req.params.id);
   await store.save(db);
   res.json({ ok: true });
+});
+
+// ---------- Singer's own song library (optional, tied to their account -
+// not to any particular event, since a singer isn't scoped to one keyboard
+// player's events). Shared live with whichever player they're connected to,
+// gated by shareLibrary so it's the singer's choice to expose it. ----------
+
+function songFromBody(body) {
+  return {
+    title: String(body.title || '').trim(),
+    artist: String(body.artist || '').trim(),
+    key: String(body.key || '').trim(),
+    bpm: String(body.bpm || '').trim(),
+    lyrics: String(body.lyrics || ''),
+  };
+}
+
+app.get('/api/singer/songs', requireRole('singer'), async (req, res) => {
+  const db = await store.load();
+  const user = db.users.find((u) => u.id === req.user.id);
+  res.json((user && user.songs) || []);
+});
+
+app.post('/api/singer/songs', requireRole('singer'), async (req, res) => {
+  const fields = songFromBody(req.body);
+  if (!fields.title) return res.status(400).json({ error: 'Title is required.' });
+  const db = await store.load();
+  const user = db.users.find((u) => u.id === req.user.id);
+  const song = { id: store.newId('song'), ...fields };
+  user.songs = user.songs || [];
+  user.songs.push(song);
+  await store.save(db);
+  res.status(201).json(song);
+});
+
+app.put('/api/singer/songs/:id', requireRole('singer'), async (req, res) => {
+  const fields = songFromBody(req.body);
+  if (!fields.title) return res.status(400).json({ error: 'Title is required.' });
+  const db = await store.load();
+  const user = db.users.find((u) => u.id === req.user.id);
+  const idx = (user.songs || []).findIndex((s) => s.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Not found' });
+  user.songs[idx] = { id: req.params.id, ...fields };
+  await store.save(db);
+  res.json(user.songs[idx]);
+});
+
+app.delete('/api/singer/songs/:id', requireRole('singer'), async (req, res) => {
+  const db = await store.load();
+  const user = db.users.find((u) => u.id === req.user.id);
+  user.songs = (user.songs || []).filter((s) => s.id !== req.params.id);
+  await store.save(db);
+  res.json({ ok: true });
+});
+
+app.put('/api/singer/account/share-library', requireRole('singer'), async (req, res) => {
+  const db = await store.load();
+  const user = db.users.find((u) => u.id === req.user.id);
+  user.shareLibrary = Boolean(req.body.shareLibrary);
+  await store.save(db);
+  res.json({ ok: true, shareLibrary: user.shareLibrary });
 });
 
 // ---------- Events ----------
@@ -669,6 +739,15 @@ io.on('connection', (socket) => {
     socket.to(`session:${socket.data.code}`).emit('singer:flash');
   });
 
+  // The player's own singer:librarySync state isn't part of session.state
+  // (it's account data the singer owns, not something the player persists),
+  // so a player reload/reconnect needs to explicitly ask connected singers
+  // to re-send it rather than relying on it surviving the reconnect.
+  socket.on('player:requestLibrarySync', () => {
+    if (socket.data.role !== 'player' || !socket.data.code) return;
+    socket.to(`session:${socket.data.code}`).emit('player:requestLibrarySync');
+  });
+
   socket.on('singer:react', (text) => {
     if (socket.data.role !== 'singer' || !socket.data.code) return;
     const session = sessions.get(socket.data.code);
@@ -705,6 +784,34 @@ io.on('connection', (socket) => {
     const session = sessions.get(socket.data.code);
     if (!session) return;
     io.to(session.playerSocketId).emit('singer:queueRemove', songId);
+  });
+
+  // The singer's own library, pushed whenever they connect/change it while
+  // live (not stored server-side beyond their account via the REST routes
+  // above) - the player merges it in locally, same shape as its own songs.
+  socket.on('singer:librarySync', (songs) => {
+    if (socket.data.role !== 'singer' || !socket.data.code) return;
+    const session = sessions.get(socket.data.code);
+    if (!session) return;
+    const cleaned = Array.isArray(songs) ? songs.slice(0, 300).map((s) => ({
+      id: String((s && s.id) || ''),
+      title: String((s && s.title) || '').slice(0, 200),
+      artist: String((s && s.artist) || '').slice(0, 200),
+      key: String((s && s.key) || '').slice(0, 20),
+      bpm: String((s && s.bpm) || '').slice(0, 20),
+      lyrics: String((s && s.lyrics) || '').slice(0, 20000),
+    })).filter((s) => s.id && s.title) : [];
+    io.to(session.playerSocketId).emit('singer:librarySync', cleaned);
+  });
+
+  socket.on('singer:suggestSong', (payload) => {
+    if (socket.data.role !== 'singer' || !socket.data.code) return;
+    const session = sessions.get(socket.data.code);
+    if (!session) return;
+    const title = String((payload && payload.title) || '').trim().slice(0, 80);
+    if (!title) return;
+    const artist = String((payload && payload.artist) || '').trim().slice(0, 80);
+    io.to(session.playerSocketId).emit('singer:suggestion', { title, artist, at: Date.now() });
   });
 
   socket.on('disconnect', () => {

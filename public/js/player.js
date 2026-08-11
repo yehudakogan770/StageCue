@@ -12,6 +12,7 @@
   let currentEventId = null;
   let currentEventName = null;
   let allowSingerLibrary = true;
+  let singerLibrarySongs = []; // songs the connected singer shared, if any
 
   // song and message are independent - either, both, or neither can be showing at once.
   let liveState = { message: '', song: null, highlightLine: -1 };
@@ -30,7 +31,10 @@
     return (await fetch(url, { method: 'DELETE', credentials: 'same-origin' })).json();
   }
 
-  function findSong(id) { return songs.find((s) => s.id === id); }
+  // Queue items can come from either the player's own library or a song the
+  // singer shared - both resolve through here so the rest of the queue code
+  // (sendSongToSinger, findSong-based lookups, etc.) doesn't need to care.
+  function findSong(id) { return songs.find((s) => s.id === id) || singerLibrarySongs.find((s) => s.id === id); }
 
   function songKeyBpmLine(song) {
     const parts = [];
@@ -113,6 +117,10 @@
   const qrImageWrap = document.getElementById('qrImageWrap');
   const qrCodeText = document.getElementById('qrCodeText');
   const closeQrBtn = document.getElementById('closeQrBtn');
+  const openSingerLibraryBtn = document.getElementById('openSingerLibraryBtn');
+  const closeSingerLibraryBtn = document.getElementById('closeSingerLibraryBtn');
+  const singerLibraryModal = document.getElementById('singerLibraryModal');
+  const singerLibraryPlayerList = document.getElementById('singerLibraryPlayerList');
   const singerStatus = document.getElementById('singerStatus');
   const playerConnStatus = document.getElementById('playerConnStatus');
   const endSessionBtn = document.getElementById('endSessionBtn');
@@ -380,6 +388,7 @@
     renderPresetGrid();
     updateSessionInfoFade();
     pushUpdate({ queue: queuePayload(), library: allowSingerLibrary ? libraryPayload() : [], libraryEnabled: allowSingerLibrary });
+    socket.emit('player:requestLibrarySync');
   }
 
   // Shows a fade at the right edge of the topbar's pill row whenever it's
@@ -561,6 +570,51 @@
     const idx = queue.indexOf(songId);
     if (idx < 0) return;
     removeFromQueue(idx);
+  });
+
+  // The singer's own shared library - it lives only in this socket
+  // connection's memory (not session.state), so a page reload asks for a
+  // fresh copy via player:requestLibrarySync in enterSession().
+  socket.on('singer:librarySync', (sharedSongs) => {
+    singerLibrarySongs = Array.isArray(sharedSongs) ? sharedSongs : [];
+    renderSingerLibraryPlayerList();
+  });
+
+  function renderSingerLibraryPlayerList() {
+    openSingerLibraryBtn.classList.toggle('hidden', singerLibrarySongs.length === 0);
+    singerLibraryPlayerList.innerHTML = '';
+    if (singerLibrarySongs.length === 0) {
+      singerLibraryPlayerList.innerHTML = '<li class="muted">The singer hasn\'t shared any songs.</li>';
+      return;
+    }
+    singerLibrarySongs.forEach((song) => {
+      const inQueue = queue.includes(song.id);
+      const li = document.createElement('li');
+      li.className = 'entity-item';
+      li.innerHTML = `
+        <div class="info"><strong>${escapeHtml(song.title)}</strong><span>${escapeHtml(songKeyBpmLine(song))}${song.artist ? ` · ${escapeHtml(song.artist)}` : ''}</span></div>
+        <div class="actions">
+          <button class="btn btn-small" data-act="add" ${inQueue ? 'disabled' : ''}>${inQueue ? 'In Queue' : 'Queue'}</button>
+        </div>`;
+      const addBtn = li.querySelector('[data-act="add"]');
+      if (!inQueue) addBtn.addEventListener('click', () => { addToQueue(song.id); renderSingerLibraryPlayerList(); });
+      singerLibraryPlayerList.appendChild(li);
+    });
+  }
+
+  openSingerLibraryBtn.addEventListener('click', () => singerLibraryModal.classList.remove('hidden'));
+  closeSingerLibraryBtn.addEventListener('click', () => singerLibraryModal.classList.add('hidden'));
+
+  socket.on('singer:suggestion', ({ title, artist, at }) => {
+    if (reactionsFeed.dataset.empty === 'true') {
+      reactionsFeed.innerHTML = '';
+      reactionsFeed.dataset.empty = 'false';
+    }
+    const li = document.createElement('li');
+    const time = new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    li.innerHTML = `<span>&#128161; Suggests: <strong>${escapeHtml(title)}</strong>${artist ? ` &mdash; ${escapeHtml(artist)}` : ''}</span><span class="time">${time}</span>`;
+    reactionsFeed.prepend(li);
+    while (reactionsFeed.children.length > 25) reactionsFeed.removeChild(reactionsFeed.lastChild);
   });
 
   socket.on('singer:reaction', ({ text, at }) => {
