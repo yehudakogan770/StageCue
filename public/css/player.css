@@ -531,7 +531,5 @@
 .check-list { max-height: 160px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; }
 
 .preset-grid button.preset-song-specific { border-color: var(--success); }
-.check-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 14px; }
-.check-item input { width: auto; }
 
 hr { border: none; border-top: 1px solid var(--border); margin: 14px 0 0; }
