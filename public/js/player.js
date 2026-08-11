@@ -488,6 +488,22 @@
           enterSession(ack.code, ack.state);
           return;
         }
+
+        // The session died some other way than a deliberate End Session -
+        // the reconnect grace period ran out, the server restarted, etc.
+        // Whatever got sung is still sitting in the local log; save it to
+        // History now instead of silently discarding it below, since this
+        // is how most sessions actually end in practice.
+        try {
+          const log = JSON.parse(localStorage.getItem(SESSION_LOG_KEY) || 'null');
+          const eventIdForLog = savedEventId || currentEventId;
+          if (log && eventIdForLog && ((log.songs && log.songs.length) || (log.reactions && log.reactions.length))) {
+            await apiPost(`/api/events/${eventIdForLog}/history`, {
+              startedAt: log.startedAt, endedAt: Date.now(), songs: log.songs || [], reactions: log.reactions || [],
+            });
+          }
+        } catch { /* history is a nice-to-have - never block recovery on it */ }
+
         localStorage.removeItem(SESSION_KEY);
         localStorage.removeItem(SESSION_EVENT_ID_KEY);
         localStorage.removeItem(SESSION_EVENT_NAME_KEY);
