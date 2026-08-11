@@ -6,6 +6,9 @@
   let presets = [];
   let queue = []; // array of song ids
   let currentIndex = -1;
+  // The id of the song Next should send, tracked separately from
+  // currentIndex - see getNextIndex() for why.
+  let nextSongId = null;
   let sessionCode = null;
   let singerCount = 0;
   let currentUser = null;
@@ -578,6 +581,11 @@
   socket.on('singer:librarySync', (sharedSongs) => {
     singerLibrarySongs = Array.isArray(sharedSongs) ? sharedSongs : [];
     renderSingerLibraryPlayerList();
+    renderQueue();
+    // Re-broadcast the queue too - if this player just reloaded, the
+    // queuePayload() sent moments ago (before this arrived) would have
+    // silently dropped any singer-shared songs still unresolved at the time.
+    if (sessionCode) pushUpdate({ queue: queuePayload() });
   });
 
   function renderSingerLibraryPlayerList() {
@@ -615,6 +623,19 @@
     li.innerHTML = `<span>&#128161; Suggests: <strong>${escapeHtml(title)}</strong>${artist ? ` &mdash; ${escapeHtml(artist)}` : ''}</span><span class="time">${time}</span>`;
     reactionsFeed.prepend(li);
     while (reactionsFeed.children.length > 25) reactionsFeed.removeChild(reactionsFeed.lastChild);
+
+    // reactionsFeed only lives on the Setup screen - reuse the same banner
+    // reactions use so a suggestion sent mid-show is actually seen while
+    // the player is on the Live screen, not just discovered later.
+    const item = document.createElement('div');
+    item.className = 'reaction-banner-item';
+    item.textContent = `Suggests: ${title}${artist ? ` — ${artist}` : ''}`;
+    reactionBanner.prepend(item);
+    reactionBanner.classList.remove('hidden');
+    setTimeout(() => {
+      item.remove();
+      if (!reactionBanner.children.length) reactionBanner.classList.add('hidden');
+    }, 4000);
   });
 
   socket.on('singer:reaction', ({ text, at }) => {
@@ -851,7 +872,23 @@
   function persistQueue() {
     localStorage.setItem(`stagecue_queue_${currentEventId}`, JSON.stringify(queue));
     localStorage.setItem(`stagecue_currentIndex_${currentEventId}`, String(currentIndex));
+    localStorage.setItem(`stagecue_nextSongId_${currentEventId}`, nextSongId || '');
     if (sessionCode) pushUpdate({ queue: queuePayload() });
+  }
+
+  // What "Next" should actually send. Normally that's just whatever's right
+  // after currentIndex, but skipping ahead to an out-of-order song is a
+  // one-off detour, not a change of plan - nextSongId (set in
+  // sendSongToSinger) freezes the real next-up song so Next resumes there
+  // instead of jumping past whatever got skipped. Tracked by song id
+  // (not index) so queue reorders never need to adjust it.
+  function getNextIndex() {
+    if (nextSongId) {
+      const idx = queue.indexOf(nextSongId);
+      if (idx >= 0) return idx;
+      nextSongId = null; // that song left the queue - fall back below
+    }
+    return currentIndex + 1;
   }
 
   // Lightweight shape for the singer's queue view - it only ever sees
@@ -883,13 +920,19 @@
 
   function restoreQueue() {
     try {
-      const q = JSON.parse(localStorage.getItem(`stagecue_queue_${currentEventId}`) || '[]');
-      queue = q.filter((id) => findSong(id));
+      // Don't drop ids findSong can't resolve yet - a queued song shared by
+      // the singer only resolves once their singer:librarySync arrives
+      // (moments after this runs on a reload), and dropping it here would
+      // permanently erase it from the persisted queue. renderQueue() already
+      // skips rendering unresolved ids, and re-renders once the sync lands.
+      queue = JSON.parse(localStorage.getItem(`stagecue_queue_${currentEventId}`) || '[]');
       currentIndex = parseInt(localStorage.getItem(`stagecue_currentIndex_${currentEventId}`) || '-1', 10);
       if (currentIndex >= queue.length) currentIndex = -1;
+      nextSongId = localStorage.getItem(`stagecue_nextSongId_${currentEventId}`) || null;
     } catch {
       queue = [];
       currentIndex = -1;
+      nextSongId = null;
     }
     const savedAllow = localStorage.getItem(`stagecue_allowSingerLibrary_${currentEventId}`);
     allowSingerLibrary = savedAllow === null ? true : savedAllow === 'true';
@@ -963,7 +1006,7 @@
   liveQueueList.addEventListener('scroll', updateLiveQueueFade);
 
   function renderUpNext() {
-    const nextIdx = currentIndex + 1;
+    const nextIdx = getNextIndex();
     const nextSong = queue[nextIdx] ? findSong(queue[nextIdx]) : null;
     if (queue.length === 0) {
       upNextLabel.textContent = 'Queue is empty — add songs in Setup.';
@@ -978,7 +1021,7 @@
   }
 
   nextSongBtn.addEventListener('click', () => {
-    const nextIdx = currentIndex + 1;
+    const nextIdx = getNextIndex();
     if (!queue[nextIdx]) return;
     sendSongToSinger(nextIdx);
   });
@@ -1080,6 +1123,19 @@
   function sendSongToSinger(idx) {
     const song = findSong(queue[idx]);
     if (!song) return;
+
+    // In-order send (whether via Next or manually sending the song that was
+    // already up next) advances the plan normally. Anything else is a
+    // detour - freeze the plan where it was so Next resumes there instead
+    // of past whatever got skipped (unless already mid-detour, in which
+    // case a further skip shouldn't move the frozen target again).
+    const expectedNextIdx = getNextIndex();
+    if (idx === expectedNextIdx) {
+      nextSongId = queue[idx + 1] || null;
+    } else if (nextSongId === null) {
+      nextSongId = queue[expectedNextIdx] || null;
+    }
+
     currentIndex = idx;
     persistQueue();
     renderQueue();
@@ -1098,6 +1154,7 @@
     if (queue.length && !confirm('Clear the whole queue?')) return;
     queue = [];
     currentIndex = -1;
+    nextSongId = null;
     persistQueue();
     renderQueue();
   });
@@ -1109,6 +1166,7 @@
     if (!pl) return;
     queue = pl.songIds.filter((sid) => findSong(sid));
     currentIndex = -1;
+    nextSongId = null;
     persistQueue();
     renderQueue();
   });
@@ -1185,8 +1243,7 @@
     renderSongLibraryList();
   });
   const songPresetDraftList = document.getElementById('songPresetDraftList');
-  const songPresetLabelInput = document.getElementById('songPresetLabelInput');
-  const songPresetMessageInput = document.getElementById('songPresetMessageInput');
+  const songPresetTextInput = document.getElementById('songPresetTextInput');
   const songPresetAddBtn = document.getElementById('songPresetAddBtn');
 
   // Draft of this song's own quick messages, edited in-memory while the form
@@ -1203,7 +1260,7 @@
       const li = document.createElement('li');
       li.className = 'entity-item';
       li.innerHTML = `
-        <div class="info"><strong>${escapeHtml(p.label)}</strong><span>${escapeHtml(p.message)}</span></div>
+        <div class="info"><strong>${escapeHtml(p.label)}</strong></div>
         <div class="actions"><button type="button" class="btn btn-small btn-danger" data-act="del">Del</button></div>`;
       li.querySelector('[data-act="del"]').addEventListener('click', () => {
         songPresetDraft.splice(idx, 1);
@@ -1214,12 +1271,10 @@
   }
 
   songPresetAddBtn.addEventListener('click', () => {
-    const label = songPresetLabelInput.value.trim();
-    const message = songPresetMessageInput.value.trim();
-    if (!label || !message) return;
-    songPresetDraft.push({ id: 'sp-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), label, message });
-    songPresetLabelInput.value = '';
-    songPresetMessageInput.value = '';
+    const text = songPresetTextInput.value.trim();
+    if (!text) return;
+    songPresetDraft.push({ id: 'sp-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), label: text, message: text });
+    songPresetTextInput.value = '';
     renderSongPresetDraftList();
   });
 
@@ -1373,11 +1428,13 @@
       return;
     }
     songs.forEach((song) => {
-      const div = document.createElement('div');
-      div.className = 'check-item';
+      // A <label> wrapping the checkbox makes the whole row tappable, not
+      // just the tiny native checkbox square.
+      const label = document.createElement('label');
+      label.className = 'check-item';
       const checked = checkedIds.includes(song.id) ? 'checked' : '';
-      div.innerHTML = `<input type="checkbox" value="${song.id}" ${checked} id="chk-${song.id}" /><label for="chk-${song.id}">${escapeHtml(song.title)}</label>`;
-      playlistSongChecks.appendChild(div);
+      label.innerHTML = `<input type="checkbox" value="${song.id}" ${checked} /><span>${escapeHtml(song.title)}</span>`;
+      playlistSongChecks.appendChild(label);
     });
   }
 
@@ -1426,6 +1483,7 @@
       li.querySelector('[data-act="load"]').addEventListener('click', () => {
         queue = pl.songIds.filter((sid) => findSong(sid));
         currentIndex = -1;
+        nextSongId = null;
         persistQueue();
         renderQueue();
       });
@@ -1466,14 +1524,16 @@
   // ---------- Presets ----------
   const presetForm = document.getElementById('presetForm');
   const presetIdField = document.getElementById('presetId');
-  const presetLabel = document.getElementById('presetLabel');
   const presetMessage = document.getElementById('presetMessage');
   const presetCancelBtn = document.getElementById('presetCancelBtn');
   const presetLibraryList = document.getElementById('presetLibraryList');
 
   presetForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const payload = { label: presetLabel.value.trim(), message: presetMessage.value.trim(), eventId: currentEventId };
+    // The button label and the message it sends are always the same text -
+    // one field, stored as both, rather than letting them drift apart.
+    const text = presetMessage.value.trim();
+    const payload = { label: text, message: text, eventId: currentEventId };
     if (presetIdField.value) {
       const updated = await apiPut(`/api/presets/${presetIdField.value}`, payload);
       const idx = presets.findIndex((p) => p.id === updated.id);
@@ -1505,15 +1565,14 @@
       const li = document.createElement('li');
       li.className = 'entity-item';
       li.innerHTML = `
-        <div class="info"><strong>${escapeHtml(p.label)}</strong><span>${escapeHtml(p.message)}</span></div>
+        <div class="info"><strong>${escapeHtml(p.label)}</strong></div>
         <div class="actions">
           <button class="btn btn-small" data-act="edit">Edit</button>
           <button class="btn btn-small btn-danger" data-act="del">Del</button>
         </div>`;
       li.querySelector('[data-act="edit"]').addEventListener('click', () => {
         presetIdField.value = p.id;
-        presetLabel.value = p.label;
-        presetMessage.value = p.message;
+        presetMessage.value = p.label;
         presetCancelBtn.classList.remove('hidden');
         selectTab('presets');
       });

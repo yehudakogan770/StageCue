@@ -612,4 +612,9 @@
 
   openQueueBtn.addEventListener('click', () => queueModal.classList.remove('hidden'));
   closeQueueBtn.addEventListener('click', () => queueModal.classList.add('hidden'));
+  // Tapping the dimmed backdrop (anywhere outside the card itself) closes
+  // it too, not just the Close button.
+  queueModal.addEventListener('click', (e) => {
+    if (e.target === queueModal) queueModal.classList.add('hidden');
+  });
 })();

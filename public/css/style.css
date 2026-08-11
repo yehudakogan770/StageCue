@@ -199,6 +199,12 @@ label {
 .entity-item .info span { color: var(--muted); font-size: 12px; }
 .entity-item .actions { display: flex; gap: 4px; }
 
+/* Wraps a checkbox + label as one row so the whole row is tappable, not
+   just the tiny native checkbox square - shared by the player's playlist
+   song picker and the singer's share-library toggle. */
+.check-item { display: flex; align-items: center; gap: 10px; padding: 8px 4px; font-size: 14px; cursor: pointer; }
+.check-item input { width: 22px; height: 22px; flex: 0 0 auto; accent-color: var(--accent); cursor: pointer; }
+
 .artist-group + .artist-group { margin-top: 6px; }
 .artist-group summary {
   cursor: pointer;

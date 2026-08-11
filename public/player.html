@@ -266,8 +266,7 @@
               <label>This song's own quick messages (in addition to your default presets)</label>
               <ul id="songPresetDraftList" class="entity-list"></ul>
               <div class="song-preset-add-row">
-                <input id="songPresetLabelInput" placeholder="Button label" maxlength="24" />
-                <input id="songPresetMessageInput" placeholder="Message sent" maxlength="200" />
+                <input id="songPresetTextInput" placeholder="Quick message" maxlength="40" />
                 <button type="button" id="songPresetAddBtn" class="btn btn-small">Add</button>
               </div>
 
@@ -301,8 +300,7 @@
             <h3>Create Preset</h3>
             <form id="presetForm" class="stacked-form">
               <input type="hidden" id="presetId" />
-              <label>Button Label<input id="presetLabel" required maxlength="24" /></label>
-              <label>Message Sent<input id="presetMessage" required maxlength="200" /></label>
+              <label>Quick Message<input id="presetMessage" required maxlength="40" /></label>
               <div class="form-actions">
                 <button type="submit" class="btn btn-primary btn-small">Save Preset</button>
                 <button type="button" id="presetCancelBtn" class="btn btn-small hidden">Cancel Edit</button>
