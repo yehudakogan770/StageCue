@@ -1,25 +1,26 @@
 :root {
-  --bg: #17181c;
-  --panel: #1e2024;
-  --panel-2: #26282e;
-  --panel-3: #2e3037;
-  --recess: #131417;
-  --border: #34363d;
-  --border-soft: #2a2c32;
-  --text: #f2f3f5;
-  --muted: #a3a6ad;
-  --muted-2: #6c6f78;
-  --accent: #5b8cff;
-  --accent-hover: #7aa2ff;
-  --success: #22c55e;
-  --danger: #ef4444;
-  --radius: 10px;
-  --radius-sm: 8px;
-  --radius-lg: 14px;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -14px rgba(0, 0, 0, 0.5);
+  --bg: #16121e;
+  --panel: #1e1830;
+  --panel-2: #261f3d;
+  --panel-3: #2f2650;
+  --recess: #120e1a;
+  --border: #3a3155;
+  --border-soft: #2c2545;
+  --text: #f6f4fb;
+  --muted: #ada4c9;
+  --muted-2: #79709c;
+  --accent: #ff6f52;
+  --accent-hover: #ff8a6e;
+  --accent-2: #c65cff;
+  --success: #34d399;
+  --danger: #f43f5e;
+  --radius: 12px;
+  --radius-sm: 10px;
+  --radius-lg: 18px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 24px -14px rgba(0, 0, 0, 0.6);
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-display: var(--font-sans);
+  --font-display: "Manrope", var(--font-sans);
 }
 
 * { box-sizing: border-box; }
@@ -42,15 +43,20 @@ html, body {
 
 body {
   background-color: var(--bg);
+  background-image:
+    radial-gradient(680px 480px at 12% -10%, rgba(255, 111, 82, 0.16), transparent 60%),
+    radial-gradient(720px 520px at 105% 15%, rgba(198, 92, 255, 0.14), transparent 60%);
+  background-repeat: no-repeat;
 }
 
 h1, h2 {
+  font-family: var(--font-display);
   font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1.2;
   margin: 0 0 4px;
 }
-h1 { font-size: 1.5rem; }
+h1 { font-size: 1.5rem; font-weight: 800; }
 h2 { font-size: 1.1rem; }
 h3 {
   font-size: 0.78rem;
@@ -79,7 +85,7 @@ a { color: var(--accent-hover); }
   font-weight: 500;
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
 }
-.btn:hover { background: var(--panel-3); border-color: #43454d; }
+.btn:hover { background: var(--panel-3); border-color: #4a4070; }
 .btn:active { transform: translateY(1px); }
 
 .btn-primary {
@@ -87,7 +93,7 @@ a { color: var(--accent-hover); }
   border-color: var(--accent);
   color: #fff;
   font-weight: 600;
-  box-shadow: 0 4px 14px -4px rgba(91, 140, 255, 0.5);
+  box-shadow: 0 4px 14px -4px rgba(255, 111, 82, 0.45);
 }
 .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 
@@ -117,7 +123,7 @@ input, textarea, select {
 input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(91, 140, 255, 0.22);
+  box-shadow: 0 0 0 3px rgba(255, 111, 82, 0.22);
 }
 
 .search-input { margin-bottom: 10px; }
@@ -193,7 +199,7 @@ label {
   gap: 8px;
   transition: border-color 0.15s ease;
 }
-.entity-item:hover { border-color: #43454d; }
+.entity-item:hover { border-color: #4a4070; }
 .entity-item .info { flex: 1; min-width: 0; }
 .entity-item .info strong { display: block; font-size: 14px; }
 .entity-item .info span { color: var(--muted); font-size: 12px; }
@@ -257,20 +263,17 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 12px 0; }
 }
 .brand-mark .mark-word {
   font-family: var(--font-display);
-  font-weight: 700;
+  font-weight: 800;
   font-size: 15px;
   letter-spacing: -0.01em;
   color: var(--text);
 }
 .brand-mark .mark-word .hi { color: var(--accent); }
-.brand-mark-lg .mark-word { font-size: 19px; }
-.brand-mark-lg .cue-mark { width: 13px; height: 13px; }
+.brand-mark-lg .mark-word { font-size: 21px; }
+.brand-mark-lg .cue-mark { width: 15px; height: 15px; }
 .start-brand { justify-content: center; margin-bottom: 4px; }
 
-/* ---------- Landing: front-panel concept ----------
-   The reference is the front plate of a stage selector/comms unit, not a
-   marketing hero: a nameplate row and two switches sized like real
-   controls. Nothing scales up to fill the page. */
+/* ---------- Landing ---------- */
 .landing {
   min-height: 100vh;
   min-height: 100dvh;
@@ -279,39 +282,57 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 12px 0; }
   justify-content: center;
   padding: 20px;
 }
-.panel-unit { width: 100%; max-width: 440px; }
+.panel-unit { width: 100%; max-width: 480px; }
 .unit-plate {
   display: flex; align-items: center;
-  padding-bottom: 16px; border-bottom: 1px solid var(--border-soft); margin-bottom: 22px;
+  padding-bottom: 18px; border-bottom: 1px solid var(--border-soft); margin-bottom: 20px;
 }
 
-.unit-desc { font-size: 13.5px; color: var(--muted); margin: 0 0 18px; }
+.unit-headline {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  margin: 0 0 8px;
+}
+.unit-desc { font-size: 14px; color: var(--muted); margin: 0 0 22px; line-height: 1.5; }
 
-.unit-switches { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.unit-switches { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .switch {
   display: block;
-  background: var(--panel-2);
+  background: linear-gradient(160deg, var(--panel-3), var(--panel-2));
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 22px 16px;
+  border-radius: var(--radius-lg);
+  padding: 20px 16px;
   text-align: left;
   text-decoration: none;
   cursor: pointer;
   position: relative;
   box-shadow: var(--shadow-sm);
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
+.switch .sw-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  color: var(--accent);
+  background: rgba(255, 111, 82, 0.14);
+}
+.switch .sw-icon svg { width: 19px; height: 19px; }
+.switch.singer .sw-icon { color: var(--success); background: rgba(52, 211, 153, 0.14); }
 .switch .sw-label {
-  display: block; font-size: 15px; font-weight: 600;
+  display: block; font-size: 15px; font-weight: 700;
   color: var(--text); margin-bottom: 4px;
 }
-.switch .sw-sub { display: block; font-size: 12.5px; color: var(--muted-2); }
+.switch .sw-sub { display: block; font-size: 12.5px; color: var(--muted-2); line-height: 1.4; }
 /* Scoped to real pointers with hover - otherwise touch browsers keep the
    hover state "stuck" on whichever switch was tapped last (no mouseleave
    event ever fires on touch), which reads as a stray highlighted button. */
 @media (hover: hover) and (pointer: fine) {
-  .switch:hover { border-color: var(--accent); transform: translateY(-2px); }
-  .switch.singer:hover { border-color: var(--success); }
+  .switch:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 12px 28px -16px rgba(255, 111, 82, 0.5); }
+  .switch.singer:hover { border-color: var(--success); box-shadow: 0 12px 28px -16px rgba(52, 211, 153, 0.5); }
   .switch:hover .sw-label { color: var(--accent-hover); }
   .switch.singer:hover .sw-label { color: var(--success); }
 }

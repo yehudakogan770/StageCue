@@ -8,9 +8,12 @@
 <link rel="manifest" href="/manifest.webmanifest" />
 <link rel="icon" href="/icons/icon-192.png" />
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-<meta name="theme-color" content="#17181c" />
+<meta name="theme-color" content="#16121e" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="StageCue" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
@@ -23,14 +26,21 @@
         </span>
       </div>
 
-      <p class="unit-desc">Pick your side of the show.</p>
+      <h1 class="unit-headline">Live cues, right to their earpiece.</h1>
+      <p class="unit-desc">No more mid-song shouting or hand signals — pick your side of the show to get started.</p>
 
       <div class="unit-switches">
         <a class="switch player" href="/player">
+          <span class="sw-icon">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="2.5" y="7" width="19" height="11" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M6 11h.01M9.5 11h.01M13 11h.01M16.5 11h.01M7.5 14.5h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </span>
           <span class="sw-label">Keyboard Player</span>
           <span class="sw-sub">Set up songs and send live cues</span>
         </a>
         <a class="switch singer" href="/singer">
+          <span class="sw-icon">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5a3.5 3.5 0 0 0-3.5 3.5v6a3.5 3.5 0 0 0 7 0V6A3.5 3.5 0 0 0 12 2.5Z" stroke="currentColor" stroke-width="1.6"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </span>
           <span class="sw-label">Singer</span>
           <span class="sw-sub">Join with a code and follow along</span>
         </a>
