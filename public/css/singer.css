@@ -15,7 +15,7 @@
   text-transform: uppercase;
   font-size: 1.4rem;
   font-weight: 700;
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
 }
 
 /* Fixed-height shell: top strip + flexible display + reply bar. The shell
@@ -87,7 +87,7 @@
   align-items: center;
   padding: 10px 16px;
   border-bottom: 1px solid var(--border);
-  background: rgba(30, 32, 36, 0.9);
+  background: rgba(22, 18, 30, 0.9);
   backdrop-filter: blur(10px);
 }
 .top-strip-actions { display: flex; gap: 8px; }
