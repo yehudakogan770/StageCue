@@ -799,6 +799,25 @@
     pushUpdate({ highlightLine: next });
   });
 
+  // Bluetooth page-turner pedals (AirTurn, PageFlip, iRig BlueTurn, etc.)
+  // pair as a plain Bluetooth keyboard and send ordinary keystrokes - there's
+  // no special pedal API to integrate with, just listening for the keys
+  // they commonly send covers virtually all of them hands-free.
+  const NEXT_LINE_KEYS = ['ArrowRight', 'ArrowDown', 'PageDown', ' '];
+  const PREV_LINE_KEYS = ['ArrowLeft', 'ArrowUp', 'PageUp'];
+  document.addEventListener('keydown', (e) => {
+    if (liveScreen.classList.contains('hidden')) return;
+    const tag = (document.activeElement && document.activeElement.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || (document.activeElement && document.activeElement.isContentEditable)) return;
+    if (NEXT_LINE_KEYS.includes(e.key)) {
+      e.preventDefault();
+      nextLineBtn.click();
+    } else if (PREV_LINE_KEYS.includes(e.key)) {
+      e.preventDefault();
+      prevLineBtn.click();
+    }
+  });
+
   clearLyricsBtn.addEventListener('click', () => pushUpdate({ song: null, highlightLine: -1 }));
   clearMessageBtn.addEventListener('click', () => pushUpdate({ message: '' }));
   clearScreenBtn.addEventListener('click', () => {
